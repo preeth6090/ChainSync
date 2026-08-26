@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { href: '/catalog', label: 'Catalog', staffOnly: false },
   { href: '/orders', label: 'Orders', staffOnly: false },
   { href: '/sales/quotations', label: 'Quotations', staffOnly: true },
+  { href: '/sales/returns', label: 'Sale Returns', staffOnly: true },
   { href: '/vendors', label: 'Vendors', staffOnly: true },
   { href: '/procurement', label: 'Procurement', staffOnly: true },
   { href: '/logistics/challans', label: 'Delivery Challans', staffOnly: true },

@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { recordVendorBillAction } from '@/lib/actions/procurement';
+import { BillOcrScanner, type OcrExtraction } from './bill-ocr-scanner';
 
 interface PoItemOption {
   id: string;
@@ -26,9 +27,15 @@ export function VendorBillForm({ purchaseOrders }: { purchaseOrders: BillablePo[
   const [billNumber, setBillNumber] = useState('');
   const [lineValues, setLineValues] = useState<Record<string, { quantity: number; price: number }>>({});
   const [error, setError] = useState<string | null>(null);
+  const [ocrAmountHint, setOcrAmountHint] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
 
   const selectedPo = purchaseOrders.find((po) => po.id === selectedPoId);
+
+  function handleOcrResult(result: OcrExtraction) {
+    if (result.billNumber) setBillNumber(result.billNumber);
+    setOcrAmountHint(result.amount);
+  }
 
   function valueFor(item: PoItemOption) {
     return lineValues[item.id] ?? { quantity: item.quantity, price: item.unitPrice };
@@ -75,6 +82,8 @@ export function VendorBillForm({ purchaseOrders }: { purchaseOrders: BillablePo[
 
   return (
     <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+      <BillOcrScanner onExtracted={handleOcrResult} />
+
       <div>
         <label className="text-xs font-bold text-slate-600">Purchase order</label>
         <select
@@ -137,6 +146,11 @@ export function VendorBillForm({ purchaseOrders }: { purchaseOrders: BillablePo[
       </div>
 
       <p className="text-xs font-semibold text-slate-500">Total: {inr.format(billAmount)}</p>
+      {ocrAmountHint !== null && Math.abs(ocrAmountHint - billAmount) > 1 && (
+        <p className="text-xs font-semibold text-amber-600">
+          Scanned bill shows {inr.format(ocrAmountHint)} — doesn&apos;t match the line totals above. Double-check quantities/prices.
+        </p>
+      )}
 
       {error && <p className="text-xs font-semibold text-rose-600">{error}</p>}
 

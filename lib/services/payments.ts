@@ -74,3 +74,42 @@ export async function rejectPayment(paymentId: string, verifiedByUserId: string,
     },
   });
 }
+
+// Finance/Admin logging a payment they already have in hand — cash handed over, a cheque
+// cleared, a UPI screenshot confirmed by phone. Unlike submitPayment (customer-initiated,
+// starts PENDING_VERIFICATION), this is created and verified in the same step because
+// there's nothing left to reconcile: the staff member recording it IS the verification.
+export async function recordPayment(
+  orderId: string,
+  recordedByUserId: string,
+  amount: number,
+  mode: PaymentMode,
+  utrNumber: string,
+  invoiceId?: string
+) {
+  if (!utrNumber.trim()) throw new Error('A reference number (UTR / cheque no. / receipt no.) is required.');
+  if (amount <= 0) throw new Error('Payment amount must be positive.');
+
+  return prisma.$transaction(async (tx) => {
+    const order = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
+
+    if (invoiceId) {
+      const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: invoiceId } });
+      if (invoice.orderId !== orderId) throw new Error('That invoice does not belong to this order.');
+    }
+
+    return tx.payment.create({
+      data: {
+        orderId,
+        customerId: order.customerId,
+        invoiceId,
+        amount,
+        mode,
+        utrNumber: utrNumber.trim(),
+        status: PaymentStatus.VERIFIED,
+        verifiedByUserId: recordedByUserId,
+        verifiedAt: new Date(),
+      },
+    });
+  });
+}

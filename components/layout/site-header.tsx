@@ -1,17 +1,23 @@
 import Link from 'next/link';
 import { ShieldCheck, LogIn, LogOut } from 'lucide-react';
+import { UserRole } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { logoutAction } from '@/lib/actions/auth';
 
+const STAFF_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.PROCUREMENT_MAKER, UserRole.PROCUREMENT_CHECKER, UserRole.FINANCE];
+
 const NAV_LINKS = [
-  { href: '/catalog', label: 'Catalog' },
-  { href: '/orders', label: 'Orders' },
-  { href: '/vendors', label: 'Vendors' },
-  { href: '/procurement', label: 'Procurement' },
+  { href: '/catalog', label: 'Catalog', staffOnly: false },
+  { href: '/orders', label: 'Orders', staffOnly: false },
+  { href: '/vendors', label: 'Vendors', staffOnly: true },
+  { href: '/procurement', label: 'Procurement', staffOnly: true },
+  { href: '/finance/invoices', label: 'Billing', staffOnly: true },
 ];
 
 export async function SiteHeader() {
   const session = await auth();
+  const isStaff = !!session?.user && STAFF_ROLES.includes(session.user.role);
+  const links = NAV_LINKS.filter((link) => !link.staffOnly || isStaff);
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/85 backdrop-blur-md">
@@ -24,7 +30,7 @@ export async function SiteHeader() {
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">
-          {NAV_LINKS.map((link) => (
+          {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}

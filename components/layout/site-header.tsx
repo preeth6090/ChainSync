@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { href: '/vendors', label: 'Vendors', staffOnly: true },
   { href: '/procurement', label: 'Procurement', staffOnly: true },
   { href: '/finance/invoices', label: 'Billing', staffOnly: true },
+  { href: '/finance/parties', label: 'Parties', staffOnly: true },
 ];
 
 export async function SiteHeader() {

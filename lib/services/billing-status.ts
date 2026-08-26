@@ -22,6 +22,7 @@ export interface BillingListFilter {
   from?: Date;
   to?: Date;
   status?: BillingStatus;
+  customerId?: string;
 }
 
 // Net amount actually owed on a tax invoice, and what's been collected against it. Credit
@@ -32,6 +33,7 @@ export async function listInvoicesWithBillingStatus(filter: BillingListFilter = 
   const invoices = await prisma.invoice.findMany({
     where: {
       type: InvoiceType.TAX_INVOICE,
+      ...(filter.customerId ? { customerId: filter.customerId } : {}),
       ...(filter.from || filter.to
         ? { issuedAt: { ...(filter.from ? { gte: filter.from } : {}), ...(filter.to ? { lte: filter.to } : {}) } }
         : {}),

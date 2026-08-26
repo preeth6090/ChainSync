@@ -1,0 +1,1011 @@
+// ChainSync — B2B OMS / Multi-Vendor Dropship / Indian GST Invoicing
+// PostgreSQL + Prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =========================================================================
+// ENUMS
+// =========================================================================
+
+enum UserRole {
+  ADMIN
+  PROCUREMENT_MAKER
+  PROCUREMENT_CHECKER
+  FINANCE
+  WAREHOUSE_STAFF
+  VENDOR
+  CUSTOMER
+}
+
+enum AddressType {
+  BILLING
+  SHIPPING
+  WAREHOUSE
+  VENDOR_PICKUP
+}
+
+enum CustomerType {
+  B2B
+  B2C
+}
+
+enum FulfillmentType {
+  WAREHOUSE_ONLY
+  DROP_SHIP_ONLY
+  HYBRID
+}
+
+enum ReservationStatus {
+  ACTIVE
+  CONSUMED
+  RELEASED
+  EXPIRED
+}
+
+enum OrderStatus {
+  DRAFT
+  PENDING_PAYMENT
+  CONFIRMED
+  PROCESSING
+  AWAITING_PROCUREMENT
+  PARTIALLY_FULFILLED
+  SHIPPED
+  DELIVERED
+  DISPUTE_WINDOW
+  DISPUTED
+  COMPLETED
+  CANCELLED
+}
+
+enum OrderItemStatus {
+  PENDING
+  RESERVED
+  ROUTED_WAREHOUSE
+  ROUTED_VENDOR
+  MOQ_CONFLICT
+  AWAITING_INTERNAL_REVIEW
+  CANCELLED
+  FULFILLED
+}
+
+enum MoqConflictStatus {
+  OPEN
+  RESOLVED_MERGED
+  RESOLVED_MANUAL_OVERRIDE
+  AUTO_CANCELLED
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  SENT_TO_VENDOR
+  ACCEPTED_BY_VENDOR
+  PRICE_PROPOSED
+  VENDOR_REJECTED
+  DISPATCHED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  INVOICED
+  CLOSED
+  CANCELLED
+}
+
+enum PriceProposalStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum DispatchType {
+  THIRD_PARTY_LOGISTICS
+  VENDOR_DELIVERY
+  LOCAL_WAREHOUSE
+}
+
+enum ShipmentStatus {
+  PENDING
+  DISPATCHED
+  IN_TRANSIT
+  DELIVERED
+  DISPUTE_WINDOW_OPEN
+  FINALIZED
+  RETURNED
+}
+
+enum DispatchProofType {
+  VEHICLE_PHOTO
+  EWAY_BILL
+  DELIVERY_SIGNATURE
+  OTHER
+}
+
+enum DisputeStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED_REFUND
+  RESOLVED_REPLACEMENT
+  RESOLVED_REJECTED
+}
+
+enum DisputeReason {
+  DAMAGED
+  MISSING
+  WRONG_ITEM
+  QUALITY_ISSUE
+  OTHER
+}
+
+enum InvoiceType {
+  TAX_INVOICE
+  CREDIT_NOTE
+  PROFORMA
+}
+
+enum SupplyType {
+  INTRA_STATE
+  INTER_STATE
+}
+
+enum PaymentMode {
+  NEFT
+  RTGS
+  UPI
+  CASH
+  CHEQUE
+  CARD
+}
+
+enum PaymentStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+}
+
+enum ThreeWayMatchStatus {
+  PENDING
+  MATCHED
+  MISMATCHED
+  OVERRIDDEN
+}
+
+enum PayableStatus {
+  PENDING
+  APPROVED
+  PAID
+  ON_HOLD
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  WHATSAPP
+  IN_APP
+}
+
+// =========================================================================
+// AUTH (Auth.js / NextAuth Prisma Adapter)
+// =========================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  phone         String?   @unique
+  image         String?
+  role          UserRole  @default(CUSTOMER)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+
+  customer      Customer?
+  vendorProfile VendorUser?
+
+  purchaseOrdersMade    PurchaseOrder[] @relation("POMaker")
+  purchaseOrdersChecked PurchaseOrder[] @relation("POChecker")
+
+  notifications Notification[]
+  auditLogs     AuditLog[]
+
+  @@index([role])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Scoped, time-boxed magic link for the mobile vendor portal (SMS/WhatsApp delivery).
+// Optionally bound to a single PurchaseOrder so the link opens directly on that PO's action card.
+model VendorMagicLink {
+  id           String     @id @default(cuid())
+  token        String     @unique
+  vendorUserId String
+  vendorUser   VendorUser @relation(fields: [vendorUserId], references: [id], onDelete: Cascade)
+
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([vendorUserId])
+  @@index([purchaseOrderId])
+}
+
+// =========================================================================
+// COMPANY / CONFIG
+// =========================================================================
+
+model CompanyProfile {
+  id           String  @id @default(cuid())
+  legalName    String
+  gstin        String
+  pan          String?
+  stateCode    String // GST state code, e.g. "27" for Maharashtra
+  state        String
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  pincode      String
+
+  bankName        String?
+  bankAccountName String?
+  bankAccountNo   String?
+  bankIfsc        String?
+
+  invoicePrefix String  @default("INV")
+  logoUrl       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Single active row; drives the maker-checker auto-approval cutoff for draft POs.
+model ApprovalConfig {
+  id               String   @id @default(cuid())
+  autoApproveBelow Decimal  @default(50000) @db.Decimal(12, 2)
+  isActive         Boolean  @default(true)
+  updatedByUserId  String?
+  updatedAt        DateTime @updatedAt
+  createdAt        DateTime @default(now())
+}
+
+// Guarantees gapless, sequential legal invoice numbers per financial year under GST law.
+// Increment must happen inside the same DB transaction that creates the Invoice.
+model InvoiceSequence {
+  id            String   @id @default(cuid())
+  financialYear String   @unique // e.g. "2026-27"
+  prefix        String   @default("INV")
+  lastNumber    Int      @default(0)
+  updatedAt     DateTime @updatedAt
+}
+
+// =========================================================================
+// PARTIES & ADDRESSES
+// =========================================================================
+
+model Address {
+  id        String      @id @default(cuid())
+  type      AddressType
+  line1     String
+  line2     String?
+  city      String
+  state     String
+  stateCode String
+  pincode   String
+  country   String      @default("India")
+  isDefault Boolean     @default(false)
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  vendorId String?
+  vendor   Vendor? @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  warehouseId String?
+  warehouse   Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  orders Order[]
+
+  createdAt DateTime @default(now())
+
+  @@index([customerId])
+  @@index([vendorId])
+  @@index([warehouseId])
+}
+
+model Warehouse {
+  id       String  @id @default(cuid())
+  name     String
+  code     String  @unique
+  isActive Boolean @default(true)
+
+  addresses Address[]
+
+  createdAt DateTime @default(now())
+}
+
+model Customer {
+  id           String       @id @default(cuid())
+  userId       String       @unique
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customerType CustomerType @default(B2C)
+
+  gstin     String? // required for B2B / ITC claim
+  legalName String?
+  stateCode String // customer's default place-of-supply state
+  state     String
+
+  addresses         Address[]
+  orders            Order[]
+  invoices          Invoice[]
+  payments          Payment[]
+  stockReservations StockReservation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerType])
+}
+
+model Vendor {
+  id          String  @id @default(cuid())
+  legalName   String
+  displayName String
+  gstin       String?
+  pan         String?
+  stateCode   String
+  state       String
+  phone       String  @unique
+  email       String?
+
+  bankAccountName String?
+  bankAccountNo   String?
+  bankIfsc        String?
+
+  rating   Decimal @default(0) @db.Decimal(3, 2)
+  isActive Boolean @default(true)
+
+  addresses      Address[]
+  users          VendorUser[]
+  catalogs       VendorCatalog[]
+  purchaseOrders PurchaseOrder[]
+  vendorBills    VendorBill[]
+  payables       VendorPayable[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model VendorUser {
+  id        String  @id @default(cuid())
+  vendorId  String
+  vendor    Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  userId    String  @unique
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isPrimary Boolean @default(false)
+
+  magicLinks VendorMagicLink[]
+
+  createdAt DateTime @default(now())
+
+  @@index([vendorId])
+}
+
+// =========================================================================
+// CATALOG & INVENTORY
+// =========================================================================
+
+model Category {
+  id       String  @id @default(cuid())
+  name     String
+  slug     String  @unique
+  parentId String?
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+
+  products Product[]
+}
+
+model Product {
+  id              String          @id @default(cuid())
+  sku             String          @unique
+  name            String
+  description     String?
+  hsnCode         String
+  gstRate         Decimal         @db.Decimal(5, 2) // 0, 5, 12, 18, 28
+  sellingPrice    Decimal         @db.Decimal(12, 2) // customer-facing price (ex-GST); distinct from VendorCatalog.price, which is vendor cost
+  fulfillmentType FulfillmentType @default(WAREHOUSE_ONLY)
+  minCustomerMoq  Int             @default(1)
+  warehouseStock  Int             @default(0)
+  unit            String          @default("PCS")
+  isActive        Boolean         @default(true)
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  vendorCatalogs     VendorCatalog[]
+  orderItems         OrderItem[]
+  stockReservations  StockReservation[]
+  purchaseOrderItems PurchaseOrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([fulfillmentType])
+  @@index([hsnCode])
+}
+
+// Per-vendor price/stock/MOQ for a SKU. [productId, price] is the index the
+// cheapest-vendor auto-selection query sorts on.
+model VendorCatalog {
+  id           String  @id @default(cuid())
+  vendorId     String
+  vendor       Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  price        Decimal @db.Decimal(12, 2)
+  vendorMoq    Int     @default(1)
+  stock        Int     @default(0)
+  leadTimeDays Int     @default(3)
+  isActive     Boolean @default(true)
+
+  purchaseOrderItems PurchaseOrderItem[]
+  moqConflicts       MoqConflictAlert[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([vendorId, productId])
+  @@index([productId, price])
+}
+
+// 15-minute cart hold on WAREHOUSE stock; released back to the pool by a
+// scheduled job when expiresAt passes without the reservation being consumed.
+model StockReservation {
+  id         String            @id @default(cuid())
+  productId  String
+  product    Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  quantity   Int
+  status     ReservationStatus @default(ACTIVE)
+  expiresAt  DateTime
+
+  orderItemId String?    @unique
+  orderItem   OrderItem? @relation(fields: [orderItemId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([status, expiresAt])
+  @@index([productId, status])
+}
+
+// =========================================================================
+// ORDERS
+// =========================================================================
+
+model Order {
+  id          String      @id @default(cuid())
+  orderNumber String      @unique
+  customerId  String
+  customer    Customer    @relation(fields: [customerId], references: [id])
+  status      OrderStatus @default(DRAFT)
+
+  shippingAddressId String
+  shippingAddress   Address @relation(fields: [shippingAddressId], references: [id])
+
+  // snapshotted at checkout — the customer's saved address may change later
+  placeOfSupplyStateCode String
+
+  subtotal   Decimal @db.Decimal(12, 2)
+  taxTotal   Decimal @db.Decimal(12, 2)
+  grandTotal Decimal @db.Decimal(12, 2)
+
+  items     OrderItem[]
+  shipments Shipment[]
+  invoices  Invoice[]
+  payments  Payment[]
+  disputes  Dispute[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  quantity     Int
+  unitPrice    Decimal @db.Decimal(12, 2)
+  gstRate      Decimal @db.Decimal(5, 2)
+  lineSubtotal Decimal @db.Decimal(12, 2)
+  lineTax      Decimal @db.Decimal(12, 2)
+  lineTotal    Decimal @db.Decimal(12, 2)
+
+  status          OrderItemStatus @default(PENDING)
+  fulfillmentType FulfillmentType // snapshot of Product.fulfillmentType at order time
+
+  stockReservation   StockReservation?
+  moqConflict        MoqConflictAlert?
+  purchaseOrderItems PurchaseOrderItem[]
+  shipmentItems      ShipmentItem[]
+  invoiceItems       InvoiceItem[]
+  disputeItems       DisputeItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([productId, status])
+}
+
+// Raised when customerQty < vendorMoq during routing: routing halts and the
+// internal team is alerted before any auto-cancel of the customer's line item.
+model MoqConflictAlert {
+  id          String    @id @default(cuid())
+  orderItemId String    @unique
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  vendorCatalogId String
+  vendorCatalog   VendorCatalog @relation(fields: [vendorCatalogId], references: [id])
+
+  customerQty Int
+  vendorMoq   Int
+  status      MoqConflictStatus @default(OPEN)
+
+  resolvedByUserId String?
+  resolvedAt       DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([status])
+}
+
+// =========================================================================
+// PROCUREMENT (Maker-Checker) & MULTI-VENDOR DROPSHIP
+// =========================================================================
+
+model PurchaseOrder {
+  id       String              @id @default(cuid())
+  poNumber String              @unique
+  vendorId String
+  vendor   Vendor              @relation(fields: [vendorId], references: [id])
+  status   PurchaseOrderStatus @default(DRAFT)
+
+  totalAmount      Decimal @db.Decimal(12, 2)
+  requiresApproval Boolean @default(false) // snapshot of (totalAmount >= ApprovalConfig.autoApproveBelow) at creation
+
+  makerId   String?
+  maker     User?   @relation("POMaker", fields: [makerId], references: [id])
+  checkerId String?
+  checker   User?   @relation("POChecker", fields: [checkerId], references: [id])
+
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  rejectionReason String?
+
+  vendorRespondedAt DateTime?
+
+  items          PurchaseOrderItem[]
+  shipments      Shipment[]
+  vendorBills    VendorBill[]
+  magicLinks     VendorMagicLink[]
+  priceProposals PriceProposal[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([vendorId, status])
+  @@index([status])
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  vendorCatalogId String
+  vendorCatalog   VendorCatalog @relation(fields: [vendorCatalogId], references: [id])
+
+  orderItemId String?
+  orderItem   OrderItem? @relation(fields: [orderItemId], references: [id])
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  quantity         Int
+  unitPrice        Decimal @db.Decimal(12, 2)
+  lineTotal        Decimal @db.Decimal(12, 2)
+  receivedQuantity Int     @default(0)
+
+  shipmentItems   ShipmentItem[]
+  vendorBillItems VendorBillItem[]
+
+  createdAt DateTime @default(now())
+
+  @@index([purchaseOrderId])
+  @@index([orderItemId])
+}
+
+// Vendor's "Propose New Price / Reject" counter-offer from the mobile portal.
+model PriceProposal {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  proposedAmount Decimal             @db.Decimal(12, 2)
+  reason         String?
+  status         PriceProposalStatus @default(PENDING)
+
+  respondedByUserId String?
+  respondedAt       DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([purchaseOrderId])
+}
+
+// =========================================================================
+// LOGISTICS & DISPUTE WINDOW
+// =========================================================================
+
+model Shipment {
+  id             String @id @default(cuid())
+  shipmentNumber String @unique
+  orderId        String
+  order          Order  @relation(fields: [orderId], references: [id])
+
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+
+  dispatchType DispatchType
+  status       ShipmentStatus @default(PENDING)
+
+  trackingLink  String? // Porter tracking URL or WhatsApp live-location link
+  vehicleNumber String?
+  driverName    String?
+  driverPhone   String?
+
+  dispatchedAt        DateTime?
+  deliveredAt         DateTime?
+  disputeWindowEndsAt DateTime? // deliveredAt + 24h; a scheduled job finalizes billing once this passes undisputed
+
+  items    ShipmentItem[]
+  proofs   DispatchProof[]
+  disputes Dispute[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([status, disputeWindowEndsAt])
+}
+
+// Line-level allocation within a shipment; a PO can be split across multiple
+// child shipments (e.g. two separate Porter trucks) each with independent tracking.
+model ShipmentItem {
+  id         String   @id @default(cuid())
+  shipmentId String
+  shipment   Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id])
+
+  purchaseOrderItemId String?
+  purchaseOrderItem   PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [id])
+
+  quantity Int
+
+  @@index([shipmentId])
+  @@index([orderItemId])
+}
+
+model DispatchProof {
+  id         String            @id @default(cuid())
+  shipmentId String
+  shipment   Shipment          @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  type       DispatchProofType
+  fileUrl    String
+
+  uploadedByUserId String?
+  createdAt        DateTime @default(now())
+
+  @@index([shipmentId])
+}
+
+model Dispute {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  shipmentId String?
+  shipment   Shipment? @relation(fields: [shipmentId], references: [id])
+
+  raisedByUserId String
+  status         DisputeStatus @default(OPEN)
+  description    String
+
+  resolvedAt     DateTime?
+  resolutionNote String?
+
+  items      DisputeItem[]
+  creditNote Invoice?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([status])
+}
+
+model DisputeItem {
+  id          String        @id @default(cuid())
+  disputeId   String
+  dispute     Dispute       @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  orderItemId String
+  orderItem   OrderItem     @relation(fields: [orderItemId], references: [id])
+  reason      DisputeReason
+  quantity    Int
+  photoUrls   String[]
+  notes       String?
+
+  @@index([disputeId])
+}
+
+// =========================================================================
+// GST INVOICING
+// =========================================================================
+
+model Invoice {
+  id            String      @id @default(cuid())
+  invoiceNumber String      @unique // sequential, unbroken — see InvoiceSequence
+  type          InvoiceType @default(TAX_INVOICE)
+
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id])
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  originalInvoiceId String?  @unique
+  originalInvoice   Invoice? @relation("CreditNoteOf", fields: [originalInvoiceId], references: [id])
+  creditNote        Invoice? @relation("CreditNoteOf")
+
+  disputeId String?  @unique
+  dispute   Dispute? @relation(fields: [disputeId], references: [id])
+
+  supplyType             SupplyType
+  placeOfSupplyStateCode String
+  companyStateCode       String
+
+  customerGstin          String?
+  customerLegalName      String
+  billingAddressSnapshot Json
+
+  subtotal   Decimal @db.Decimal(12, 2)
+  cgstTotal  Decimal @default(0) @db.Decimal(12, 2)
+  sgstTotal  Decimal @default(0) @db.Decimal(12, 2)
+  igstTotal  Decimal @default(0) @db.Decimal(12, 2)
+  grandTotal Decimal @db.Decimal(12, 2)
+
+  issuedAt DateTime @default(now())
+
+  items    InvoiceItem[]
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+  @@index([type])
+}
+
+model InvoiceItem {
+  id        String  @id @default(cuid())
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  orderItemId String?
+  orderItem   OrderItem? @relation(fields: [orderItemId], references: [id])
+
+  productId   String
+  productName String
+  hsnCode     String
+
+  quantity     Int
+  unitPrice    Decimal @db.Decimal(12, 2)
+  gstRate      Decimal @db.Decimal(5, 2)
+  taxableValue Decimal @db.Decimal(12, 2)
+  cgstAmount   Decimal @default(0) @db.Decimal(12, 2)
+  sgstAmount   Decimal @default(0) @db.Decimal(12, 2)
+  igstAmount   Decimal @default(0) @db.Decimal(12, 2)
+  lineTotal    Decimal @db.Decimal(12, 2)
+
+  @@index([invoiceId])
+}
+
+// =========================================================================
+// PAYMENTS (Manual UTR Reconciliation)
+// =========================================================================
+
+model Payment {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id])
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  invoiceId  String?
+  invoice    Invoice? @relation(fields: [invoiceId], references: [id])
+
+  amount    Decimal       @db.Decimal(12, 2)
+  mode      PaymentMode
+  utrNumber String
+  status    PaymentStatus @default(PENDING_VERIFICATION)
+
+  submittedAt      DateTime  @default(now())
+  verifiedByUserId String?
+  verifiedAt       DateTime?
+  rejectionReason  String?
+
+  @@index([orderId])
+  @@index([status])
+  @@index([utrNumber])
+}
+
+// =========================================================================
+// VENDOR BILLING & 3-WAY MATCH
+// =========================================================================
+
+model VendorBill {
+  id         String @id @default(cuid())
+  billNumber String
+  vendorId   String
+  vendor     Vendor @relation(fields: [vendorId], references: [id])
+
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+
+  billAmount Decimal @db.Decimal(12, 2)
+  fileUrl    String?
+
+  matchStatus   ThreeWayMatchStatus @default(PENDING)
+  mismatchNotes String?
+
+  reviewedByUserId String?
+  reviewedAt       DateTime?
+
+  items   VendorBillItem[]
+  payable VendorPayable?
+
+  createdAt DateTime @default(now())
+
+  @@unique([vendorId, billNumber])
+  @@index([purchaseOrderId])
+  @@index([matchStatus])
+}
+
+// Line-level 3-way match: PO price vs invoiced price vs received quantity.
+model VendorBillItem {
+  id           String     @id @default(cuid())
+  vendorBillId String
+  vendorBill   VendorBill @relation(fields: [vendorBillId], references: [id], onDelete: Cascade)
+
+  purchaseOrderItemId String
+  purchaseOrderItem   PurchaseOrderItem @relation(fields: [purchaseOrderItemId], references: [id])
+
+  invoicedQuantity Int
+  invoicedPrice    Decimal @db.Decimal(12, 2)
+  poPrice          Decimal @db.Decimal(12, 2)
+  receivedQuantity Int
+  isMatched        Boolean @default(false)
+
+  @@index([vendorBillId])
+}
+
+// Created only once a VendorBill is fully matched; releasing it (status -> PAID)
+// is what "closes the loop" on the vendor's payable balance.
+model VendorPayable {
+  id           String     @id @default(cuid())
+  vendorId     String
+  vendor       Vendor     @relation(fields: [vendorId], references: [id])
+  vendorBillId String     @unique
+  vendorBill   VendorBill @relation(fields: [vendorBillId], references: [id])
+
+  amount     Decimal       @db.Decimal(12, 2)
+  status     PayableStatus @default(PENDING)
+  releasedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([vendorId, status])
+}
+
+// =========================================================================
+// NOTIFICATIONS & AUDIT
+// =========================================================================
+
+model Notification {
+  id      String              @id @default(cuid())
+  userId  String?
+  user    User?               @relation(fields: [userId], references: [id])
+  channel NotificationChannel
+  title   String
+  message String
+
+  relatedEntityType String?
+  relatedEntityId   String?
+
+  isRead Boolean  @default(false)
+  sentAt DateTime @default(now())
+
+  @@index([userId, isRead])
+}
+
+model AuditLog {
+  id          String  @id @default(cuid())
+  actorUserId String?
+  actor       User?   @relation(fields: [actorUserId], references: [id])
+  action      String
+  entityType  String
+  entityId    String
+  metadata    Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorUserId])
+}

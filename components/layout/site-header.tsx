@@ -14,6 +14,7 @@ const NAV_LINKS = [
   { href: '/finance/invoices', label: 'Billing', staffOnly: true },
   { href: '/finance/parties', label: 'Parties', staffOnly: true },
   { href: '/finance/purchases', label: 'Purchase & Expense', staffOnly: true },
+  { href: '/finance/reports', label: 'Reports', staffOnly: true },
 ];
 
 export async function SiteHeader() {

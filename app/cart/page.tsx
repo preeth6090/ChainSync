@@ -72,17 +72,17 @@ export default function CartPage() {
     if (!selectedAddressId) return setError('Choose a shipping address.');
 
     startTransition(async () => {
-      try {
-        const order = await checkoutOrderAction(
-          selectedAddressId,
-          cart.map((l) => ({ productId: l.productId, quantity: l.quantity }))
-        );
-        clearCart();
-        setCart([]);
-        router.push(`/orders/${order.id}`);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Could not place your order.');
+      const result = await checkoutOrderAction(
+        selectedAddressId,
+        cart.map((l) => ({ productId: l.productId, quantity: l.quantity }))
+      );
+      if (!result.success) {
+        setError(result.error);
+        return;
       }
+      clearCart();
+      setCart([]);
+      router.push(`/orders/${result.data.id}`);
     });
   }
 

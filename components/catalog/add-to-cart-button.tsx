@@ -29,16 +29,16 @@ export function AddToCartButton({
     setError(null);
     setAdded(false);
     startTransition(async () => {
-      try {
-        // Places the 15-minute warehouse hold (for WAREHOUSE_ONLY SKUs) server-side, then
-        // mirrors the line into the client-side cart used at checkout.
-        await addToCartAction(productId, quantity);
-        addToCart({ productId, name, sku, unitPrice, quantity });
-        setAdded(true);
-        router.refresh();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Could not add to cart.');
+      // Places the 15-minute warehouse hold (for WAREHOUSE_ONLY SKUs) server-side, then
+      // mirrors the line into the client-side cart used at checkout.
+      const result = await addToCartAction(productId, quantity);
+      if (!result.success) {
+        setError(result.error);
+        return;
       }
+      addToCart({ productId, name, sku, unitPrice, quantity });
+      setAdded(true);
+      router.refresh();
     });
   }
 

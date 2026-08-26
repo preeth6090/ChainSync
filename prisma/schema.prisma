@@ -202,6 +202,7 @@ model User {
   emailVerified DateTime?
   phone         String?   @unique
   image         String?
+  passwordHash  String? // bcrypt hash; null means this account cannot use credentials sign-in
   role          UserRole  @default(CUSTOMER)
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())

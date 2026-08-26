@@ -1,9 +1,15 @@
 import { PrismaClient, UserRole, FulfillmentType, AddressType, CustomerType } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
+// Shared demo password for every seeded account, differentiated by email/role rather than
+// password. Fine for a seed script; a real signup flow would never do this.
+const DEFAULT_PASSWORD = 'ChainSync@123';
+
 async function main() {
   console.log('Seeding...');
+  const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
 
   await prisma.companyProfile.upsert({
     where: { id: 'default-company' },
@@ -57,38 +63,48 @@ async function main() {
   const [admin, maker, checker, finance, warehouseStaff, vendorUserAccount, customerUserAccount] = await Promise.all([
     prisma.user.upsert({
       where: { email: 'admin@chainsync.test' },
-      update: {},
-      create: { email: 'admin@chainsync.test', name: 'Asha Admin', role: UserRole.ADMIN },
+      update: { passwordHash },
+      create: { email: 'admin@chainsync.test', name: 'Asha Admin', role: UserRole.ADMIN, passwordHash },
     }),
     prisma.user.upsert({
       where: { email: 'maker@chainsync.test' },
-      update: {},
-      create: { email: 'maker@chainsync.test', name: 'Manoj Maker', role: UserRole.PROCUREMENT_MAKER },
+      update: { passwordHash },
+      create: { email: 'maker@chainsync.test', name: 'Manoj Maker', role: UserRole.PROCUREMENT_MAKER, passwordHash },
     }),
     prisma.user.upsert({
       where: { email: 'checker@chainsync.test' },
-      update: {},
-      create: { email: 'checker@chainsync.test', name: 'Chitra Checker', role: UserRole.PROCUREMENT_CHECKER },
+      update: { passwordHash },
+      create: {
+        email: 'checker@chainsync.test',
+        name: 'Chitra Checker',
+        role: UserRole.PROCUREMENT_CHECKER,
+        passwordHash,
+      },
     }),
     prisma.user.upsert({
       where: { email: 'finance@chainsync.test' },
-      update: {},
-      create: { email: 'finance@chainsync.test', name: 'Farhan Finance', role: UserRole.FINANCE },
+      update: { passwordHash },
+      create: { email: 'finance@chainsync.test', name: 'Farhan Finance', role: UserRole.FINANCE, passwordHash },
     }),
     prisma.user.upsert({
       where: { email: 'warehouse@chainsync.test' },
-      update: {},
-      create: { email: 'warehouse@chainsync.test', name: 'Waseem Warehouse', role: UserRole.WAREHOUSE_STAFF },
+      update: { passwordHash },
+      create: {
+        email: 'warehouse@chainsync.test',
+        name: 'Waseem Warehouse',
+        role: UserRole.WAREHOUSE_STAFF,
+        passwordHash,
+      },
     }),
     prisma.user.upsert({
       where: { email: 'vendor@genuinesuppliers.test' },
-      update: {},
-      create: { email: 'vendor@genuinesuppliers.test', name: 'Vikram Vendor', role: UserRole.VENDOR },
+      update: { passwordHash },
+      create: { email: 'vendor@genuinesuppliers.test', name: 'Vikram Vendor', role: UserRole.VENDOR, passwordHash },
     }),
     prisma.user.upsert({
       where: { email: 'customer@example.test' },
-      update: {},
-      create: { email: 'customer@example.test', name: 'Neha Customer', role: UserRole.CUSTOMER },
+      update: { passwordHash },
+      create: { email: 'customer@example.test', name: 'Neha Customer', role: UserRole.CUSTOMER, passwordHash },
     }),
   ]);
 
@@ -215,7 +231,7 @@ async function main() {
     create: { vendorId: vendor.id, productId: hybridProduct.id, price: 700, vendorMoq: 5, stock: 100, leadTimeDays: 3 },
   });
 
-  console.log('Seed complete. Sign-in emails (magic link):');
+  console.log('Seed complete. Sign-in emails:');
   console.table({
     admin: admin.email,
     procurementMaker: maker.email,
@@ -226,6 +242,7 @@ async function main() {
     customer: customerUserAccount.email,
   });
   console.log('Products:', [warehouseOnlyProduct.sku, dropShipProduct.sku, hybridProduct.sku].join(', '));
+  console.log(`Password for all accounts above: ${DEFAULT_PASSWORD}`);
 }
 
 main()

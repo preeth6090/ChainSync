@@ -1,33 +1,51 @@
 import NextAuth from 'next-auth';
 import { PrismaAdapter } from '@auth/prisma-adapter';
-import Nodemailer from 'next-auth/providers/nodemailer';
+import Credentials from 'next-auth/providers/credentials';
+import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
+import type { UserRole } from '@prisma/client';
 
-// Database session strategy (not JWT): the Session/Account/VerificationToken tables already
-// exist in schema.prisma for exactly this. That trades a DB read per request for the ability
-// to revoke a session server-side — the right default for admin/procurement/finance roles.
+// Credentials sign-in is incompatible with Auth.js's database session strategy (there's no
+// OAuth-style Account row to link a credentials login to), so this uses JWT sessions —
+// trading server-side session revocation for the simplicity of plain email+password login.
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
-  session: { strategy: 'database' },
+  session: { strategy: 'jwt' },
   pages: { signIn: '/login' },
   providers: [
-    Nodemailer({
-      server: process.env.EMAIL_SERVER,
-      from: process.env.EMAIL_FROM,
+    Credentials({
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
+      },
+      async authorize(credentials) {
+        const email = credentials?.email;
+        const password = credentials?.password;
+        if (typeof email !== 'string' || typeof password !== 'string') return null;
+
+        const user = await prisma.user.findUnique({ where: { email } });
+        // isActive exists specifically so an admin can deactivate a compromised or offboarded
+        // account — checking it here, not just at signup, is what makes that flag do anything.
+        if (!user || !user.isActive || !user.passwordHash) return null;
+
+        const valid = await bcrypt.compare(password, user.passwordHash);
+        if (!valid) return null;
+
+        return { id: user.id, email: user.email, name: user.name, role: user.role };
+      },
     }),
   ],
   callbacks: {
-    // isActive exists specifically so an admin can deactivate a compromised or offboarded
-    // account — without this check that flag would be purely decorative, since a
-    // deactivated user could still complete the magic-link flow and get a valid session.
-    async signIn({ user }) {
-      if (!user.id) return true;
-      const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { isActive: true } });
-      return dbUser?.isActive ?? true;
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id as string;
+        token.role = (user as { role: UserRole }).role;
+      }
+      return token;
     },
-    async session({ session, user }) {
-      session.user.id = user.id;
-      session.user.role = (user as typeof user & { role: import('@prisma/client').UserRole }).role;
+    async session({ session, token }) {
+      session.user.id = token.id as string;
+      session.user.role = token.role as UserRole;
       return session;
     },
   },

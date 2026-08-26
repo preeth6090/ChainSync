@@ -4,7 +4,7 @@ import { UserRole } from '@prisma/client';
 import { Receipt, IndianRupee, Wallet, AlertCircle, Printer } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { listInvoicesWithBillingStatus, type BillingStatus } from '@/lib/services/billing-status';
-import { SiteHeader } from '@/components/layout/site-header';
+import { AppShell } from '@/components/layout/app-shell';
 import { RecordPaymentForm } from '@/components/finance/record-payment-form';
 
 const STAFF_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.FINANCE];
@@ -55,9 +55,7 @@ export default async function SaleInvoicesPage({
   }
 
   return (
-    <div className="min-h-dvh bg-slate-50">
-      <SiteHeader />
-
+    <AppShell>
       <main className="mx-auto max-w-6xl px-6 py-10 pb-24">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-md">
@@ -193,6 +191,6 @@ export default async function SaleInvoicesPage({
           )}
         </div>
       </main>
-    </div>
+    </AppShell>
   );
 }

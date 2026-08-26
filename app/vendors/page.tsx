@@ -3,7 +3,7 @@ import { UserRole } from '@prisma/client';
 import { Star, Phone, Mail, MapPin, Package, FileText, Building2 } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { SiteHeader } from '@/components/layout/site-header';
+import { AppShell } from '@/components/layout/app-shell';
 
 const STAFF_ROLES: UserRole[] = [
   UserRole.ADMIN,
@@ -23,9 +23,7 @@ export default async function VendorsPage() {
   });
 
   return (
-    <div className="min-h-dvh bg-slate-50">
-      <SiteHeader />
-
+    <AppShell>
       <main className="mx-auto max-w-6xl px-6 py-10 pb-24">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md">
@@ -101,6 +99,6 @@ export default async function VendorsPage() {
           </div>
         )}
       </main>
-    </div>
+    </AppShell>
   );
 }

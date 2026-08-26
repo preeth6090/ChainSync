@@ -4,7 +4,7 @@ import { UserRole } from '@prisma/client';
 import { Undo2, Printer } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { listCreditNotes } from '@/lib/services/sale-returns';
-import { SiteHeader } from '@/components/layout/site-header';
+import { AppShell } from '@/components/layout/app-shell';
 import { SaleReturnForm } from '@/components/sales/sale-return-form';
 
 const STAFF_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.FINANCE];
@@ -20,9 +20,7 @@ export default async function SaleReturnsPage() {
   const creditNotes = await listCreditNotes();
 
   return (
-    <div className="min-h-dvh bg-slate-50">
-      <SiteHeader />
-
+    <AppShell>
       <main className="mx-auto max-w-6xl px-6 py-10 pb-24">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 to-pink-500 text-white shadow-md">
@@ -83,6 +81,6 @@ export default async function SaleReturnsPage() {
           )}
         </div>
       </main>
-    </div>
+    </AppShell>
   );
 }

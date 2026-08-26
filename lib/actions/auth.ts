@@ -2,7 +2,9 @@
 
 import { redirect } from 'next/navigation';
 import { AuthError } from 'next-auth';
+import { CustomerType } from '@prisma/client';
 import { signIn, signOut } from '@/lib/auth';
+import { registerCustomer } from '@/lib/services/signup';
 
 // Server-action sign-in rather than the client-side next-auth/react signIn() call: that
 // helper generally expects the app to be wrapped in a <SessionProvider>, which this app
@@ -27,4 +29,34 @@ export async function loginAction(formData: FormData) {
 
 export async function logoutAction() {
   await signOut({ redirectTo: '/' });
+}
+
+export async function signupAction(formData: FormData) {
+  const name = String(formData.get('name') ?? '');
+  const email = String(formData.get('email') ?? '');
+  const password = String(formData.get('password') ?? '');
+  const phone = String(formData.get('phone') ?? '');
+  const customerType = formData.get('customerType') === 'B2B' ? CustomerType.B2B : CustomerType.B2C;
+  const legalName = String(formData.get('legalName') ?? '');
+  const gstin = String(formData.get('gstin') ?? '');
+  const stateCode = String(formData.get('stateCode') ?? '');
+  const state = String(formData.get('state') ?? '');
+
+  try {
+    await registerCustomer({ name, email, password, phone, customerType, legalName, gstin, stateCode, state });
+  } catch (error) {
+    if (error instanceof Error) {
+      redirect(`/signup?error=${encodeURIComponent(error.message)}`);
+    }
+    throw error;
+  }
+
+  try {
+    await signIn('credentials', { email, password, redirectTo: '/' });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      redirect('/login?callbackUrl=/');
+    }
+    throw error;
+  }
 }

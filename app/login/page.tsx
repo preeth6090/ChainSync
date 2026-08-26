@@ -104,6 +104,13 @@ export default async function LoginPage({
 
             <SubmitButton />
           </form>
+
+          <p className="mt-6 text-center text-sm text-slate-500">
+            New customer?{' '}
+            <a href="/signup" className="font-bold text-indigo-600 hover:text-indigo-700">
+              Create an account
+            </a>
+          </p>
         </div>
       </div>
     </main>

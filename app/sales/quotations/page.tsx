@@ -4,7 +4,7 @@ import { FileText } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { listQuotations } from '@/lib/services/quotations';
-import { SiteHeader } from '@/components/layout/site-header';
+import { AppShell } from '@/components/layout/app-shell';
 import { CreateQuotationForm } from '@/components/sales/create-quotation-form';
 import { QuotationActions } from '@/components/sales/quotation-actions';
 
@@ -45,9 +45,7 @@ export default async function QuotationsPage() {
   }));
 
   return (
-    <div className="min-h-dvh bg-slate-50">
-      <SiteHeader />
-
+    <AppShell>
       <main className="mx-auto max-w-6xl px-6 py-10 pb-24">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -115,6 +113,6 @@ export default async function QuotationsPage() {
           )}
         </div>
       </main>
-    </div>
+    </AppShell>
   );
 }

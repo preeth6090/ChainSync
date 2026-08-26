@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { formatInr, formatNumber } from '@/lib/format';
 import { AddToCartButton } from '@/components/catalog/add-to-cart-button';
+import { AppShell } from '@/components/layout/app-shell';
 
 // Stock and pricing change frequently (routing decrements warehouseStock on every order),
 // and this page has no auth/params to otherwise force per-request rendering — without this,
@@ -12,8 +13,9 @@ export default async function CatalogPage() {
   const products = await prisma.product.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } });
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <h1 className="text-2xl font-extrabold text-slate-900">Catalog</h1>
+    <AppShell>
+      <main className="mx-auto max-w-5xl px-6 py-10">
+        <h1 className="text-2xl font-extrabold text-slate-900">Catalog</h1>
       {products.length === 0 ? (
         <p className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-400">
           No active products yet.
@@ -41,6 +43,7 @@ export default async function CatalogPage() {
           ))}
         </div>
       )}
-    </main>
+      </main>
+    </AppShell>
   );
 }

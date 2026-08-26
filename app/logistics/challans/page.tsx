@@ -4,7 +4,7 @@ import { UserRole, ShipmentStatus } from '@prisma/client';
 import { Truck, Printer } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { listShipments } from '@/lib/services/delivery-challan';
-import { SiteHeader } from '@/components/layout/site-header';
+import { AppShell } from '@/components/layout/app-shell';
 
 const STAFF_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.FINANCE, UserRole.WAREHOUSE_STAFF];
 
@@ -28,9 +28,7 @@ export default async function DeliveryChallansListPage() {
   const shipments = await listShipments();
 
   return (
-    <div className="min-h-dvh bg-slate-50">
-      <SiteHeader />
-
+    <AppShell>
       <main className="mx-auto max-w-6xl px-6 py-10 pb-24">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-md">
@@ -89,6 +87,6 @@ export default async function DeliveryChallansListPage() {
           )}
         </div>
       </main>
-    </div>
+    </AppShell>
   );
 }

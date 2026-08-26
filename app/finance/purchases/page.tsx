@@ -4,7 +4,7 @@ import { Truck, Wallet, ReceiptText } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { listExpenses } from '@/lib/services/expenses';
-import { SiteHeader } from '@/components/layout/site-header';
+import { AppShell } from '@/components/layout/app-shell';
 import { AddExpenseForm } from '@/components/finance/add-expense-form';
 import { ReleasePayableButton } from '@/components/finance/release-payable-button';
 
@@ -40,9 +40,7 @@ export default async function PurchaseAndExpensePage() {
   const totalPurchases = payables.reduce((sum, p) => sum + Number(p.amount), 0);
 
   return (
-    <div className="min-h-dvh bg-slate-50">
-      <SiteHeader />
-
+    <AppShell>
       <main className="mx-auto max-w-6xl px-6 py-10 pb-24">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-rose-500 text-white shadow-md">
@@ -165,6 +163,6 @@ export default async function PurchaseAndExpensePage() {
           </div>
         </section>
       </main>
-    </div>
+    </AppShell>
   );
 }

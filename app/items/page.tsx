@@ -4,7 +4,7 @@ import { Boxes } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { listProductsForAdmin } from '@/lib/services/items';
 import { listCategories } from '@/lib/services/items';
-import { SiteHeader } from '@/components/layout/site-header';
+import { AppShell } from '@/components/layout/app-shell';
 import { ProductForm } from '@/components/items/product-form';
 
 const ITEM_MANAGER_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.PROCUREMENT_MAKER];
@@ -20,9 +20,7 @@ export default async function ItemsPage() {
   const categoryOptions = categories.map((c) => ({ id: c.id, name: c.name }));
 
   return (
-    <div className="min-h-dvh bg-slate-50">
-      <SiteHeader />
-
+    <AppShell>
       <main className="mx-auto max-w-6xl px-6 py-10 pb-24">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-500 text-white shadow-md">
@@ -105,6 +103,6 @@ export default async function ItemsPage() {
           )}
         </div>
       </main>
-    </div>
+    </AppShell>
   );
 }

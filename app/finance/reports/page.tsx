@@ -3,7 +3,7 @@ import { UserRole } from '@prisma/client';
 import { BarChart3, Landmark, TrendingUp, TrendingDown, Scale } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { getCashAndBankPosition, getBusinessSummary } from '@/lib/services/reports';
-import { SiteHeader } from '@/components/layout/site-header';
+import { AppShell } from '@/components/layout/app-shell';
 
 const STAFF_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.FINANCE];
 
@@ -18,9 +18,7 @@ export default async function ReportsPage() {
   const totalCash = cashAndBank.reduce((sum, r) => sum + r.netPosition, 0);
 
   return (
-    <div className="min-h-dvh bg-slate-50">
-      <SiteHeader />
-
+    <AppShell>
       <main className="mx-auto max-w-6xl px-6 py-10 pb-24">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-500 text-white shadow-md">
@@ -33,7 +31,7 @@ export default async function ReportsPage() {
         </div>
 
         {/* Business summary */}
-        <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <section id="business-summary" className="mt-6 scroll-mt-24 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <SummaryCard icon={TrendingUp} label="Total Sales" value={summary.totalSales} tone="indigo" />
           <SummaryCard icon={TrendingUp} label="Received from Customers" value={summary.totalReceived} tone="emerald" />
           <SummaryCard icon={Scale} label="Outstanding from Customers" value={summary.totalOutstandingFromCustomers} tone="rose" />
@@ -50,7 +48,7 @@ export default async function ReportsPage() {
         </section>
 
         {/* Cash & Bank by mode */}
-        <section className="mt-8">
+        <section id="cash-bank" className="mt-8 scroll-mt-24">
           <div className="flex items-baseline justify-between">
             <h2 className="text-base font-extrabold text-slate-900">Cash &amp; Bank Position</h2>
             <p className="text-sm font-bold text-slate-500">
@@ -81,7 +79,7 @@ export default async function ReportsPage() {
           </div>
         </section>
       </main>
-    </div>
+    </AppShell>
   );
 }
 

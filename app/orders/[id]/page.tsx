@@ -6,6 +6,7 @@ import { formatInr, formatDate } from '@/lib/format';
 import { DisputeForm } from '@/components/orders/dispute-form';
 import { PaymentForm } from '@/components/orders/payment-form';
 import { GenerateInvoiceButton } from '@/components/procurement/generate-invoice-button';
+import { AppShell } from '@/components/layout/app-shell';
 
 const STAFF_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.FINANCE];
 
@@ -43,7 +44,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const hasPendingPayment = order.payments.some((p) => p.status === 'PENDING_VERIFICATION');
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-10 pb-24">
+    <AppShell>
+      <main className="mx-auto max-w-3xl px-6 py-10 pb-24">
       <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">Order</p>
       <div className="mt-1 flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-slate-900">{order.orderNumber}</h1>
@@ -175,6 +177,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           </div>
         </section>
       )}
-    </main>
+      </main>
+    </AppShell>
   );
 }

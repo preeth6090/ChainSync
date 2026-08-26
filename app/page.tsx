@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { SiteHeader } from '@/components/layout/site-header';
+import { AppShell } from '@/components/layout/app-shell';
 
 const MODULES = [
   {
@@ -70,8 +70,7 @@ export default async function HomePage() {
   ];
 
   return (
-    <div className="min-h-dvh bg-slate-50">
-      <SiteHeader />
+    <AppShell>
 
       {/* Hero */}
       <section className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800">
@@ -159,6 +158,6 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
-    </div>
+    </AppShell>
   );
 }

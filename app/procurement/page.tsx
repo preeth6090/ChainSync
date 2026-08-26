@@ -18,6 +18,7 @@ import {
 } from '@/components/procurement/action-buttons';
 import { GoodsReceiptForm } from '@/components/procurement/goods-receipt-form';
 import { VendorBillForm, type BillablePo } from '@/components/procurement/vendor-bill-form';
+import { AppShell } from '@/components/layout/app-shell';
 
 const DASHBOARD_ROLES: UserRole[] = [
   UserRole.ADMIN,
@@ -124,6 +125,7 @@ export default async function ProcurementDashboardPage() {
   }));
 
   return (
+    <AppShell>
     <main className="mx-auto max-w-5xl px-6 py-10 pb-24">
       <h1 className="text-2xl font-extrabold text-slate-900">Procurement Desk</h1>
       <p className="mt-1 text-sm text-slate-500">
@@ -364,6 +366,7 @@ export default async function ProcurementDashboardPage() {
         )}
       </Section>
     </main>
+    </AppShell>
   );
 }
 

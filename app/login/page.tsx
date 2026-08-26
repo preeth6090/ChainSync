@@ -1,5 +1,6 @@
-import { ShieldCheck, Truck, FileSpreadsheet, GitBranch } from 'lucide-react';
-import { LoginForm } from '@/components/auth/login-form';
+import { ShieldCheck, Truck, FileSpreadsheet, GitBranch, Mail, Lock, AlertCircle } from 'lucide-react';
+import { loginAction } from '@/lib/actions/auth';
+import { SubmitButton } from '@/components/auth/submit-button';
 
 const FEATURES = [
   { icon: GitBranch, text: 'Multi-vendor dropship routing, automatically to the cheapest supplier' },
@@ -10,9 +11,9 @@ const FEATURES = [
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ callbackUrl?: string }>;
+  searchParams: Promise<{ callbackUrl?: string; error?: string }>;
 }) {
-  const { callbackUrl } = await searchParams;
+  const { callbackUrl, error } = await searchParams;
 
   return (
     <main className="flex min-h-dvh bg-slate-50">
@@ -62,9 +63,47 @@ export default async function LoginPage({
           <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">Welcome back</h2>
           <p className="mt-1.5 text-sm text-slate-500">Sign in with your email and password.</p>
 
-          <div className="mt-8">
-            <LoginForm callbackUrl={callbackUrl ?? '/'} />
-          </div>
+          <form action={loginAction} className="mt-8 space-y-4">
+            <input type="hidden" name="callbackUrl" value={callbackUrl ?? '/'} />
+
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">Email</label>
+              <div className="relative">
+                <Mail size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  name="email"
+                  type="email"
+                  required
+                  autoFocus
+                  placeholder="you@company.com"
+                  className="w-full rounded-xl border border-slate-200 py-3 pl-11 pr-4 text-sm text-slate-900 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/10"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">Password</label>
+              <div className="relative">
+                <Lock size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  name="password"
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  className="w-full rounded-xl border border-slate-200 py-3 pl-11 pr-4 text-sm text-slate-900 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/10"
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+                <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                <span>Incorrect email or password.</span>
+              </div>
+            )}
+
+            <SubmitButton />
+          </form>
         </div>
       </div>
     </main>

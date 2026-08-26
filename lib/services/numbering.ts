@@ -37,3 +37,8 @@ export async function generateShipmentNumber(tx: Prisma.TransactionClient): Prom
   const count = await tx.shipment.count();
   return `SHP-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
 }
+
+export async function generateQuotationNumber(tx: Prisma.TransactionClient): Promise<string> {
+  const count = await tx.quotation.count();
+  return `QTN-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
+}

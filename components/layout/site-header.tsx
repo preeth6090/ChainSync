@@ -8,6 +8,7 @@ const STAFF_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.PROCUREMENT_MAKER, Use
 
 const NAV_LINKS = [
   { href: '/catalog', label: 'Catalog', staffOnly: false },
+  { href: '/items', label: 'Items', staffOnly: true },
   { href: '/orders', label: 'Orders', staffOnly: false },
   { href: '/sales/quotations', label: 'Quotations', staffOnly: true },
   { href: '/sales/returns', label: 'Sale Returns', staffOnly: true },

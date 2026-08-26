@@ -85,6 +85,14 @@ export function PoActionCard({
             </li>
           ))}
         </ul>
+        <a
+          href={`/purchase-order/${purchaseOrder.id}?token=${token}`}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-4 block text-center text-sm font-bold text-indigo-600"
+        >
+          Print / Download PO
+        </a>
       </section>
 
       {awaitingResponse && (

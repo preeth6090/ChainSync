@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { UserRole } from '@prisma/client';
 import { auth } from '@/lib/auth';
@@ -149,7 +150,12 @@ export default async function ProcurementDashboardPage() {
                       {po.requiresApproval ? ' · requires checker approval' : ' · auto-approves on submit'}
                     </p>
                   </div>
-                  <SubmitPoButton poId={po.id} />
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Link href={`/purchase-order/${po.id}`} target="_blank" className="text-xs font-bold text-indigo-600">
+                      Print PO
+                    </Link>
+                    <SubmitPoButton poId={po.id} />
+                  </div>
                 </div>
               </li>
             ))}
@@ -174,7 +180,10 @@ export default async function ProcurementDashboardPage() {
                       {po.maker?.name ?? po.maker?.email ?? '—'}
                     </p>
                   </div>
-                  <div className="flex shrink-0 gap-2">
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Link href={`/purchase-order/${po.id}`} target="_blank" className="text-xs font-bold text-indigo-600">
+                      Print PO
+                    </Link>
                     <ApprovePoButton poId={po.id} disabled={po.makerId === currentUserId} />
                     <RejectPoButton poId={po.id} />
                   </div>

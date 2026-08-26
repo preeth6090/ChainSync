@@ -6,6 +6,7 @@ import { listProductsForAdmin } from '@/lib/services/items';
 import { listCategories } from '@/lib/services/items';
 import { AppShell } from '@/components/layout/app-shell';
 import { ProductForm } from '@/components/items/product-form';
+import { BulkUploadForm } from '@/components/items/bulk-upload-form';
 
 const ITEM_MANAGER_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.PROCUREMENT_MAKER];
 
@@ -32,8 +33,9 @@ export default async function ItemsPage() {
           </div>
         </div>
 
-        <div className="mt-6">
+        <div className="mt-6 flex flex-wrap items-start gap-3">
           <ProductForm categories={categoryOptions} trigger="add" />
+          <BulkUploadForm />
         </div>
 
         <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-200 bg-white">

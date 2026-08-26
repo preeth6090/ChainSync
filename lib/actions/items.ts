@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { UserRole, FulfillmentType } from '@prisma/client';
 import { requireRole } from '@/lib/auth-helpers';
 import { createProduct, updateProduct, createCategory, type ProductInput } from '@/lib/services/items';
+import { importItemsFromWorkbook, type BulkImportResult } from '@/lib/services/bulk-import';
 
 const ITEM_MANAGER_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.PROCUREMENT_MAKER];
 
@@ -44,6 +45,26 @@ export async function createCategoryAction(name: string): Promise<ItemActionResu
     return { success: true, data: { id: category.id, name: category.name } };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : 'Could not create category.' };
+  }
+}
+
+export type BulkImportActionResult = { success: true; data: BulkImportResult } | { success: false; error: string };
+
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+
+export async function bulkImportItemsAction(file: File): Promise<BulkImportActionResult> {
+  try {
+    await requireRole(...ITEM_MANAGER_ROLES);
+    if (!file || file.size === 0) return { success: false, error: 'No file uploaded.' };
+    if (file.size > MAX_UPLOAD_BYTES) return { success: false, error: 'File is too large (max 5 MB).' };
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const result = await importItemsFromWorkbook(buffer);
+    revalidatePath('/items');
+    revalidatePath('/catalog');
+    return { success: true, data: result };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : 'Could not import items.' };
   }
 }
 

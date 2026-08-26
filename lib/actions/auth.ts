@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { AuthError } from 'next-auth';
-import { signIn } from '@/lib/auth';
+import { signIn, signOut } from '@/lib/auth';
 
 // Server-action sign-in rather than the client-side next-auth/react signIn() call: that
 // helper generally expects the app to be wrapped in a <SessionProvider>, which this app
@@ -23,4 +23,8 @@ export async function loginAction(formData: FormData) {
     }
     throw error;
   }
+}
+
+export async function logoutAction() {
+  await signOut({ redirectTo: '/' });
 }

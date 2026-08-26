@@ -1,5 +1,7 @@
 import Link from 'next/link';
-import { ClipboardList, ShoppingBag, ShieldCheck, LogIn } from 'lucide-react';
+import { ClipboardList, ShoppingBag, ShieldCheck, LogIn, LogOut } from 'lucide-react';
+import { auth } from '@/lib/auth';
+import { logoutAction } from '@/lib/actions/auth';
 
 const LINKS = [
   {
@@ -22,7 +24,9 @@ const LINKS = [
   },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const session = await auth();
+
   return (
     <main className="mx-auto flex min-h-dvh max-w-3xl flex-col justify-center px-6 py-16">
       <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">ChainSync</p>
@@ -45,12 +49,30 @@ export default function HomePage() {
         ))}
       </div>
 
-      <Link
-        href="/login"
-        className="mt-8 flex w-fit items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800"
-      >
-        <LogIn size={16} /> Sign in
-      </Link>
+      {session?.user ? (
+        <div className="mt-8 flex flex-wrap items-center gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4">
+          <div className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+          <p className="flex-1 text-sm text-emerald-800">
+            Signed in as <span className="font-bold">{session.user.name ?? session.user.email}</span>{' '}
+            <span className="text-emerald-600">({session.user.role})</span>
+          </p>
+          <form action={logoutAction}>
+            <button
+              type="submit"
+              className="flex items-center gap-2 rounded-xl border border-emerald-300 bg-white px-4 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-100"
+            >
+              <LogOut size={16} /> Sign out
+            </button>
+          </form>
+        </div>
+      ) : (
+        <Link
+          href="/login"
+          className="mt-8 flex w-fit items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800"
+        >
+          <LogIn size={16} /> Sign in
+        </Link>
+      )}
     </main>
   );
 }

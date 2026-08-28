@@ -1,6 +1,7 @@
 import { UserRole } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { getActiveCompanyId } from '@/lib/services/firm-context';
 
 export class UnauthenticatedError extends Error {}
 export class ForbiddenError extends Error {}
@@ -27,4 +28,14 @@ export async function requireCustomer() {
   const customer = await prisma.customer.findUnique({ where: { userId: user.id } });
   if (!customer) throw new ForbiddenError('No customer profile is linked to this account.');
   return customer;
+}
+
+// Like requireRole, but also resolves which firm the action should operate on — the active
+// firm from the switcher cookie for a staff user with several memberships, or their one and
+// only membership otherwise. Use this instead of requireRole for any action that reads or
+// writes a company-scoped table (Product, Order, Invoice, Vendor, etc.).
+export async function requireRoleWithCompany(...roles: UserRole[]) {
+  const user = await requireRole(...roles);
+  const companyId = await getActiveCompanyId(user.id);
+  return { ...user, companyId };
 }

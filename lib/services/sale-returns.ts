@@ -9,6 +9,7 @@ import { generateCreditNote } from '@/lib/services/billing';
 // generateCreditNote credits an entire InvoiceItem's amount for any orderItemId it's given,
 // so a partial-quantity return would silently over-credit if offered here.
 export async function createSaleReturn(
+  companyId: string,
   raisedByUserId: string,
   orderId: string,
   orderItemIds: string[],
@@ -17,7 +18,7 @@ export async function createSaleReturn(
 ) {
   if (orderItemIds.length === 0) throw new Error('Select at least one line item to return.');
 
-  const invoice = await prisma.invoice.findFirst({ where: { orderId, type: InvoiceType.TAX_INVOICE } });
+  const invoice = await prisma.invoice.findFirst({ where: { orderId, companyId, type: InvoiceType.TAX_INVOICE } });
   if (!invoice) throw new Error('This order has no tax invoice yet — nothing to credit.');
 
   const orderItems = await prisma.orderItem.findMany({
@@ -71,9 +72,9 @@ export async function listReturnableOrderItems(orderId: string) {
     }));
 }
 
-export async function listCreditNotes() {
+export async function listCreditNotes(companyId: string) {
   return prisma.invoice.findMany({
-    where: { type: InvoiceType.CREDIT_NOTE },
+    where: { companyId, type: InvoiceType.CREDIT_NOTE },
     include: {
       customer: { include: { user: true } },
       order: { select: { orderNumber: true } },

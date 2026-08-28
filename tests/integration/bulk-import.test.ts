@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as XLSX from 'xlsx';
 import { prisma } from '@/lib/prisma';
 import { buildItemsTemplate, importItemsFromWorkbook, ITEMS_TEMPLATE_HEADERS } from '@/lib/services/bulk-import';
@@ -7,6 +7,11 @@ import { hasDatabase } from './helpers';
 describe.skipIf(!hasDatabase)('bulk import (live DB)', () => {
   const createdSkus: string[] = [];
   const createdCategoryNames: string[] = [];
+  let companyId: string;
+
+  beforeAll(async () => {
+    companyId = (await prisma.companyProfile.findFirstOrThrow()).id;
+  });
 
   afterAll(async () => {
     if (createdSkus.length) await prisma.product.deleteMany({ where: { sku: { in: createdSkus } } });
@@ -38,13 +43,16 @@ describe.skipIf(!hasDatabase)('bulk import (live DB)', () => {
     XLSX.utils.book_append_sheet(wb, ws, 'Items');
     const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
 
-    const result = await importItemsFromWorkbook(buffer);
+    const result = await importItemsFromWorkbook(companyId, buffer);
     expect(result.created).toBe(1);
     expect(result.updated).toBe(1);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0].row).toBe(4);
 
-    const product = await prisma.product.findUnique({ where: { sku }, include: { category: true } });
+    const product = await prisma.product.findUnique({
+      where: { companyId_sku: { companyId, sku } },
+      include: { category: true },
+    });
     expect(product?.name).toBe('Bulk Test Item Updated');
     expect(Number(product?.sellingPrice)).toBe(150);
     expect(product?.fulfillmentType).toBe('HYBRID');

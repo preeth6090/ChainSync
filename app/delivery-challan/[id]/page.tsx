@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getShipmentForPrint } from '@/lib/services/delivery-challan';
 import { DeliveryChallanDocument } from '@/components/delivery-challan/delivery-challan-document';
+import { getActiveCompanyId } from '@/lib/services/firm-context';
 
 const STAFF_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.FINANCE, UserRole.WAREHOUSE_STAFF];
 
@@ -19,6 +20,10 @@ export default async function DeliveryChallanPrintPage({ params }: { params: Pro
       select: { id: true },
     });
     if (!owns) notFound();
+  } else {
+    const companyId = await getActiveCompanyId(session.user.id);
+    const shipment = await prisma.shipment.findUnique({ where: { id }, select: { order: { select: { companyId: true } } } });
+    if (!shipment || shipment.order.companyId !== companyId) notFound();
   }
 
   const { company, shipment } = await getShipmentForPrint(id);

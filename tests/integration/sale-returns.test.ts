@@ -35,6 +35,7 @@ describe.skipIf(!hasDatabase)('sale returns service (live DB)', () => {
 
     const order = await prisma.order.create({
       data: {
+        companyId: customer.companyId,
         orderNumber: `TEST-RET-${Date.now()}`,
         customerId: customer.id,
         status: OrderStatus.COMPLETED,
@@ -64,6 +65,7 @@ describe.skipIf(!hasDatabase)('sale returns service (live DB)', () => {
 
     const invoice = await prisma.invoice.create({
       data: {
+        companyId: customer.companyId,
         invoiceNumber: `TEST-INV-${Date.now()}`,
         type: InvoiceType.TAX_INVOICE,
         orderId: order.id,
@@ -104,7 +106,7 @@ describe.skipIf(!hasDatabase)('sale returns service (live DB)', () => {
     const returnable = await listReturnableOrderItems(order.id);
     expect(returnable).toHaveLength(1);
 
-    const creditNote = await createSaleReturn(admin.id, order.id, [returnable[0].orderItemId], DisputeReason.DAMAGED, 'test return');
+    const creditNote = await createSaleReturn(order.companyId, admin.id, order.id, [returnable[0].orderItemId], DisputeReason.DAMAGED, 'test return');
     invoiceIds.push(creditNote.id);
     expect(Number(creditNote.grandTotal)).toBe(Number(product.sellingPrice));
 
@@ -131,6 +133,7 @@ describe.skipIf(!hasDatabase)('sale returns service (live DB)', () => {
 
     const order = await prisma.order.create({
       data: {
+        companyId: customer.companyId,
         orderNumber: `TEST-NOINV-${Date.now()}`,
         customerId: customer.id,
         status: OrderStatus.CONFIRMED,
@@ -160,7 +163,7 @@ describe.skipIf(!hasDatabase)('sale returns service (live DB)', () => {
     orderId = order.id;
 
     await expect(
-      createSaleReturn(admin.id, order.id, [order.items[0].id], DisputeReason.DAMAGED)
+      createSaleReturn(order.companyId, admin.id, order.id, [order.items[0].id], DisputeReason.DAMAGED)
     ).rejects.toThrow(/no tax invoice/);
   });
 });

@@ -8,6 +8,7 @@ export interface ExpenseFilter {
 }
 
 export async function createExpense(
+  companyId: string,
   recordedByUserId: string,
   category: ExpenseCategory,
   description: string,
@@ -20,6 +21,7 @@ export async function createExpense(
 
   return prisma.expense.create({
     data: {
+      companyId,
       category,
       description: description.trim(),
       amount,
@@ -30,9 +32,10 @@ export async function createExpense(
   });
 }
 
-export async function listExpenses(filter: ExpenseFilter = {}) {
+export async function listExpenses(companyId: string, filter: ExpenseFilter = {}) {
   return prisma.expense.findMany({
     where: {
+      companyId,
       ...(filter.category ? { category: filter.category } : {}),
       ...(filter.from || filter.to
         ? { expenseDate: { ...(filter.from ? { gte: filter.from } : {}), ...(filter.to ? { lte: filter.to } : {}) } }

@@ -18,17 +18,15 @@ export async function generateInvoiceForOrder(orderId: string, actorUserId: stri
     const existing = await tx.invoice.findFirst({ where: { orderId, type: InvoiceType.TAX_INVOICE } });
     if (existing) throw new Error(`Order already has tax invoice ${existing.invoiceNumber}.`);
 
-    const [order, company] = await Promise.all([
-      tx.order.findUniqueOrThrow({
-        where: { id: orderId },
-        include: {
-          items: { include: { product: true } },
-          customer: { include: { user: true } },
-          shippingAddress: true,
-        },
-      }),
-      tx.companyProfile.findFirstOrThrow(),
-    ]);
+    const order = await tx.order.findUniqueOrThrow({
+      where: { id: orderId },
+      include: {
+        items: { include: { product: true } },
+        customer: { include: { user: true } },
+        shippingAddress: true,
+      },
+    });
+    const company = await tx.companyProfile.findUniqueOrThrow({ where: { id: order.companyId } });
 
     const refundedOrderItemIds = new Set(
       (
@@ -64,7 +62,8 @@ export async function generateInvoiceForOrder(orderId: string, actorUserId: stri
 
     const invoice = await tx.invoice.create({
       data: {
-        invoiceNumber: await nextInvoiceNumber(tx),
+        companyId: order.companyId,
+        invoiceNumber: await nextInvoiceNumber(tx, order.companyId),
         type: InvoiceType.TAX_INVOICE,
         orderId: order.id,
         customerId: order.customerId,
@@ -157,7 +156,8 @@ export async function generateCreditNote(disputeId: string, actorUserId: string 
 
     return tx.invoice.create({
       data: {
-        invoiceNumber: await nextInvoiceNumber(tx),
+        companyId: originalInvoice.companyId,
+        invoiceNumber: await nextInvoiceNumber(tx, originalInvoice.companyId),
         type: InvoiceType.CREDIT_NOTE,
         orderId: originalInvoice.orderId,
         customerId: originalInvoice.customerId,

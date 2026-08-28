@@ -3,6 +3,7 @@ import { UserRole } from '@prisma/client';
 import { Star, Phone, Mail, MapPin, Package, FileText, Building2 } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { getActiveCompanyId } from '@/lib/services/firm-context';
 import { AppShell } from '@/components/layout/app-shell';
 
 const STAFF_ROLES: UserRole[] = [
@@ -17,7 +18,9 @@ export default async function VendorsPage() {
   if (!session?.user) redirect('/login?callbackUrl=/vendors');
   if (!STAFF_ROLES.includes(session.user.role)) redirect('/');
 
+  const companyId = await getActiveCompanyId(session.user.id);
   const vendors = await prisma.vendor.findMany({
+    where: { companyId },
     include: { _count: { select: { catalogs: true, purchaseOrders: true } } },
     orderBy: { displayName: 'asc' },
   });

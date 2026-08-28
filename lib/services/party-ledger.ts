@@ -11,8 +11,9 @@ export interface PartyRow {
 // One row per customer with their running outstanding balance across every tax invoice they
 // hold — the "Parties" list. Balance is derived the same way as billing-status.ts (grandTotal
 // minus credit notes minus verified payments), just aggregated per customer instead of per invoice.
-export async function listPartyBalances(): Promise<PartyRow[]> {
+export async function listPartyBalances(companyId: string): Promise<PartyRow[]> {
   const customers = await prisma.customer.findMany({
+    where: { companyId },
     include: {
       user: true,
       invoices: {
@@ -52,7 +53,7 @@ export interface PartyDetail {
   billingAddress: string | null;
 }
 
-export async function getPartyDetail(customerId: string): Promise<PartyDetail | null> {
+export async function getPartyDetail(companyId: string, customerId: string): Promise<PartyDetail | null> {
   const customer = await prisma.customer.findUnique({
     where: { id: customerId },
     include: {
@@ -60,7 +61,7 @@ export async function getPartyDetail(customerId: string): Promise<PartyDetail | 
       addresses: { where: { type: 'BILLING' }, take: 1 },
     },
   });
-  if (!customer) return null;
+  if (!customer || customer.companyId !== companyId) return null;
 
   const billingAddress = customer.addresses[0]
     ? `${customer.addresses[0].line1}${customer.addresses[0].line2 ? `, ${customer.addresses[0].line2}` : ''}, ${customer.addresses[0].city}, ${customer.addresses[0].state} - ${customer.addresses[0].pincode}`

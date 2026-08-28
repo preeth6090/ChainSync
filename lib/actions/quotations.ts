@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { UserRole, QuotationStatus } from '@prisma/client';
-import { requireRole } from '@/lib/auth-helpers';
+import { requireRole, requireRoleWithCompany } from '@/lib/auth-helpers';
 import { createQuotation, updateQuotationStatus, convertQuotationToOrder, type QuotationLineInput } from '@/lib/services/quotations';
 import { writeAuditLog } from '@/lib/services/audit';
 
@@ -17,8 +17,9 @@ export async function createQuotationAction(
   notes?: string
 ): Promise<QuotationActionResult<{ id: string; quotationNumber: string }>> {
   try {
-    const staff = await requireRole(...SALES_ROLES);
+    const staff = await requireRoleWithCompany(...SALES_ROLES);
     const quotation = await createQuotation(
+      staff.companyId,
       staff.id,
       customerId,
       lines,

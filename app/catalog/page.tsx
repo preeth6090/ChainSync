@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/prisma';
+import { auth } from '@/lib/auth';
+import { getActiveCompanyId } from '@/lib/services/firm-context';
 import { formatInr, formatNumber } from '@/lib/format';
 import { AddToCartButton } from '@/components/catalog/add-to-cart-button';
 import { AppShell } from '@/components/layout/app-shell';
@@ -10,7 +12,15 @@ import { AppShell } from '@/components/layout/app-shell';
 export const dynamic = 'force-dynamic';
 
 export default async function CatalogPage() {
-  const products = await prisma.product.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } });
+  const session = await auth();
+  // A signed-in user (staff or customer) sees their own firm's catalog; an anonymous visitor
+  // sees the platform's oldest firm — the same default new customer signups attach to, so an
+  // anonymous browse session and the account they might create afterward see the same catalog.
+  const companyId = session?.user
+    ? await getActiveCompanyId(session.user.id)
+    : (await prisma.companyProfile.findFirstOrThrow({ orderBy: { createdAt: 'asc' } })).id;
+
+  const products = await prisma.product.findMany({ where: { companyId, isActive: true }, orderBy: { name: 'asc' } });
 
   return (
     <AppShell>

@@ -144,12 +144,13 @@ export async function routeOrderFulfillment(orderId: string): Promise<RoutingSum
       });
     }
 
-    const threshold = await getApprovalThreshold(tx);
+    const threshold = await getApprovalThreshold(tx, order.companyId);
     for (const [vendorId, lines] of vendorBuckets) {
       const totalAmount = lines.reduce((sum, l) => sum.plus(l.unitPrice.mul(l.quantity)), new Prisma.Decimal(0));
       const po = await tx.purchaseOrder.create({
         data: {
-          poNumber: await generatePoNumber(tx),
+          companyId: order.companyId,
+          poNumber: await generatePoNumber(tx, order.companyId),
           vendorId,
           status: PurchaseOrderStatus.DRAFT,
           totalAmount,
@@ -227,10 +228,11 @@ export async function resolveMoqConflictManually(
     }
 
     const lineTotal = alert.vendorCatalog.price.mul(alert.customerQty);
-    const threshold = await getApprovalThreshold(tx);
+    const threshold = await getApprovalThreshold(tx, alert.orderItem.order.companyId);
     const po = await tx.purchaseOrder.create({
       data: {
-        poNumber: await generatePoNumber(tx),
+        companyId: alert.orderItem.order.companyId,
+        poNumber: await generatePoNumber(tx, alert.orderItem.order.companyId),
         vendorId: alert.vendorCatalog.vendorId,
         status: PurchaseOrderStatus.DRAFT,
         totalAmount: lineTotal,

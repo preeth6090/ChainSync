@@ -5,12 +5,27 @@ import { auth } from '@/lib/auth';
 import { logoutAction } from '@/lib/actions/auth';
 import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { MobileSidebarToggle } from '@/components/layout/mobile-sidebar-toggle';
+import { FirmSwitcher } from '@/components/layout/firm-switcher';
+import { listUserFirms, getActiveCompanyId } from '@/lib/services/firm-context';
 
 const STAFF_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.PROCUREMENT_MAKER, UserRole.PROCUREMENT_CHECKER, UserRole.FINANCE];
 
 export async function SiteSidebar() {
   const session = await auth();
   const isStaff = !!session?.user && STAFF_ROLES.includes(session.user.role);
+
+  let firmOptions: { companyId: string; legalName: string; isActive: boolean }[] = [];
+  if (session?.user) {
+    const [memberships, activeCompanyId] = await Promise.all([
+      listUserFirms(session.user.id),
+      getActiveCompanyId(session.user.id),
+    ]);
+    firmOptions = memberships.map((m) => ({
+      companyId: m.companyId,
+      legalName: m.company.legalName,
+      isActive: m.companyId === activeCompanyId,
+    }));
+  }
 
   const body = (
     <div className="flex h-full flex-col bg-slate-900">
@@ -20,6 +35,12 @@ export async function SiteSidebar() {
         </div>
         <span className="text-base font-bold tracking-tight text-white">ChainSync</span>
       </Link>
+
+      {session?.user && (
+        <div className="px-3 pb-1">
+          <FirmSwitcher firms={firmOptions} />
+        </div>
+      )}
 
       <SidebarNav isStaff={isStaff} />
 

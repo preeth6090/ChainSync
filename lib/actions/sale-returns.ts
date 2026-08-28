@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { UserRole, DisputeReason } from '@prisma/client';
-import { requireRole } from '@/lib/auth-helpers';
+import { requireRoleWithCompany } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 import { createSaleReturn, listReturnableOrderItems } from '@/lib/services/sale-returns';
 import { writeAuditLog } from '@/lib/services/audit';
@@ -21,9 +21,9 @@ export type OrderLookupResult =
 
 export async function lookupOrderForReturnAction(orderNumber: string): Promise<OrderLookupResult> {
   try {
-    await requireRole(UserRole.ADMIN, UserRole.FINANCE);
+    const staff = await requireRoleWithCompany(UserRole.ADMIN, UserRole.FINANCE);
     const order = await prisma.order.findUnique({
-      where: { orderNumber: orderNumber.trim() },
+      where: { companyId_orderNumber: { companyId: staff.companyId, orderNumber: orderNumber.trim() } },
       include: { customer: { include: { user: true } } },
     });
     if (!order) return { success: false, error: `No order found with number "${orderNumber}".` };
@@ -58,8 +58,8 @@ export async function createSaleReturnAction(
   notes?: string
 ): Promise<SaleReturnActionResult> {
   try {
-    const staff = await requireRole(UserRole.ADMIN, UserRole.FINANCE);
-    const creditNote = await createSaleReturn(staff.id, orderId, orderItemIds, reason, notes);
+    const staff = await requireRoleWithCompany(UserRole.ADMIN, UserRole.FINANCE);
+    const creditNote = await createSaleReturn(staff.companyId, staff.id, orderId, orderItemIds, reason, notes);
     revalidatePath('/sales/returns');
     revalidatePath('/finance/invoices');
     await writeAuditLog(staff.id, 'SALE_RETURN_ISSUED', 'Invoice', creditNote.id, {

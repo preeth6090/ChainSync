@@ -2,8 +2,8 @@ import { redirect } from 'next/navigation';
 import { UserRole } from '@prisma/client';
 import { Boxes } from 'lucide-react';
 import { auth } from '@/lib/auth';
-import { listProductsForAdmin } from '@/lib/services/items';
-import { listCategories } from '@/lib/services/items';
+import { listProductsForAdmin, listCategories } from '@/lib/services/items';
+import { getActiveCompanyId } from '@/lib/services/firm-context';
 import { AppShell } from '@/components/layout/app-shell';
 import { ProductForm } from '@/components/items/product-form';
 import { BulkUploadForm } from '@/components/items/bulk-upload-form';
@@ -17,7 +17,8 @@ export default async function ItemsPage() {
   if (!session?.user) redirect('/login?callbackUrl=/items');
   if (!ITEM_MANAGER_ROLES.includes(session.user.role)) redirect('/');
 
-  const [products, categories] = await Promise.all([listProductsForAdmin(), listCategories()]);
+  const companyId = await getActiveCompanyId(session.user.id);
+  const [products, categories] = await Promise.all([listProductsForAdmin(companyId), listCategories(companyId)]);
   const categoryOptions = categories.map((c) => ({ id: c.id, name: c.name }));
 
   return (

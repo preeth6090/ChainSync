@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { resolveVendorMagicLink, InvalidMagicLinkError } from '@/lib/services/vendor-portal';
 import { getPurchaseOrderForPrint } from '@/lib/services/po-print';
 import { PurchaseOrderDocument } from '@/components/purchase-order/po-document';
+import { getActiveCompanyId } from '@/lib/services/firm-context';
 
 const STAFF_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.PROCUREMENT_MAKER, UserRole.PROCUREMENT_CHECKER, UserRole.FINANCE];
 
@@ -33,6 +34,9 @@ export default async function PurchaseOrderPrintPage({
     const session = await auth();
     if (!session?.user) redirect(`/login?callbackUrl=/purchase-order/${id}`);
     if (!STAFF_ROLES.includes(session.user.role)) redirect('/');
+    const companyId = await getActiveCompanyId(session.user.id);
+    const po = await prisma.purchaseOrder.findUnique({ where: { id }, select: { companyId: true } });
+    if (!po || po.companyId !== companyId) notFound();
   }
 
   const { company, purchaseOrder } = await getPurchaseOrderForPrint(id);

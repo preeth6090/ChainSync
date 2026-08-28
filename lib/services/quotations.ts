@@ -14,6 +14,7 @@ export interface QuotationLineInput {
 // customer an indicative tax breakdown; the real supply-type determination happens for real
 // at checkout, against the customer's actual shipping address.
 export async function createQuotation(
+  companyId: string,
   createdByUserId: string,
   customerId: string,
   lines: QuotationLineInput[],
@@ -24,8 +25,8 @@ export async function createQuotation(
 
   return runSerializable(async (tx) => {
     const [company, products] = await Promise.all([
-      tx.companyProfile.findFirstOrThrow(),
-      tx.product.findMany({ where: { id: { in: lines.map((l) => l.productId) } } }),
+      tx.companyProfile.findUniqueOrThrow({ where: { id: companyId } }),
+      tx.product.findMany({ where: { id: { in: lines.map((l) => l.productId) }, companyId } }),
     ]);
     const productMap = new Map(products.map((p) => [p.id, p]));
 
@@ -45,7 +46,8 @@ export async function createQuotation(
 
     return tx.quotation.create({
       data: {
-        quotationNumber: await generateQuotationNumber(tx),
+        companyId,
+        quotationNumber: await generateQuotationNumber(tx, companyId),
         customerId,
         createdByUserId,
         subtotal: totals.subtotal,
@@ -94,8 +96,8 @@ export async function convertQuotationToOrder(quotationId: string) {
     if (!address) throw new Error('This customer has no saved address to ship the order to.');
 
     const [company, products] = await Promise.all([
-      tx.companyProfile.findFirstOrThrow(),
-      tx.product.findMany({ where: { id: { in: quotation.items.map((i) => i.productId) } } }),
+      tx.companyProfile.findUniqueOrThrow({ where: { id: quotation.companyId } }),
+      tx.product.findMany({ where: { id: { in: quotation.items.map((i) => i.productId) }, companyId: quotation.companyId } }),
     ]);
     const productMap = new Map(products.map((p) => [p.id, p]));
 
@@ -115,7 +117,8 @@ export async function convertQuotationToOrder(quotationId: string) {
 
     const order = await tx.order.create({
       data: {
-        orderNumber: await generateOrderNumber(tx),
+        companyId: quotation.companyId,
+        orderNumber: await generateOrderNumber(tx, quotation.companyId),
         customerId: quotation.customerId,
         status: OrderStatus.CONFIRMED,
         shippingAddressId: address.id,
@@ -148,8 +151,9 @@ export async function convertQuotationToOrder(quotationId: string) {
   });
 }
 
-export async function listQuotations() {
+export async function listQuotations(companyId: string) {
   return prisma.quotation.findMany({
+    where: { companyId },
     include: { customer: { include: { user: true } }, convertedOrder: { select: { orderNumber: true } } },
     orderBy: { createdAt: 'desc' },
   });

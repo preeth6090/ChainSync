@@ -29,9 +29,13 @@ export interface BillingListFilter {
 // notes reduce what's owed (they're child invoices linked via originalInvoiceId); payments
 // are matched at the order level since Payment.invoiceId is optional and most orders carry
 // exactly one tax invoice.
-export async function listInvoicesWithBillingStatus(filter: BillingListFilter = {}): Promise<InvoiceBillingRow[]> {
+export async function listInvoicesWithBillingStatus(
+  companyId: string,
+  filter: BillingListFilter = {}
+): Promise<InvoiceBillingRow[]> {
   const invoices = await prisma.invoice.findMany({
     where: {
+      companyId,
       type: InvoiceType.TAX_INVOICE,
       ...(filter.customerId ? { customerId: filter.customerId } : {}),
       ...(filter.from || filter.to

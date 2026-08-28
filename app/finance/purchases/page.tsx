@@ -4,6 +4,7 @@ import { Truck, Wallet, ReceiptText } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { listExpenses } from '@/lib/services/expenses';
+import { getActiveCompanyId } from '@/lib/services/firm-context';
 import { AppShell } from '@/components/layout/app-shell';
 import { AddExpenseForm } from '@/components/finance/add-expense-form';
 import { ReleasePayableButton } from '@/components/finance/release-payable-button';
@@ -25,12 +26,14 @@ export default async function PurchaseAndExpensePage() {
   if (!session?.user) redirect('/login?callbackUrl=/finance/purchases');
   if (!STAFF_ROLES.includes(session.user.role)) redirect('/');
 
+  const companyId = await getActiveCompanyId(session.user.id);
   const [payables, expenses] = await Promise.all([
     prisma.vendorPayable.findMany({
+      where: { vendor: { companyId } },
       include: { vendor: true, vendorBill: { select: { billNumber: true } } },
       orderBy: { createdAt: 'desc' },
     }),
-    listExpenses(),
+    listExpenses(companyId),
   ]);
 
   const outstandingPayables = payables

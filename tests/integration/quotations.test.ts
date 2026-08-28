@@ -26,7 +26,7 @@ describe.skipIf(!hasDatabase)('quotations service (live DB)', () => {
     const customer = await prisma.customer.findFirstOrThrow({ include: { addresses: true } });
     const product = await prisma.product.findFirstOrThrow({ where: { isActive: true } });
 
-    const quotation = await createQuotation(admin.id, customer.id, [{ productId: product.id, quantity: 2 }], undefined, 'test');
+    const quotation = await createQuotation(customer.companyId, admin.id, customer.id, [{ productId: product.id, quantity: 2 }], undefined, 'test');
     createdQuotationId = quotation.id;
     expect(quotation.status).toBe(QuotationStatus.DRAFT);
     expect(Number(quotation.grandTotal)).toBeGreaterThan(0);
@@ -51,7 +51,7 @@ describe.skipIf(!hasDatabase)('quotations service (live DB)', () => {
     if (customer.addresses.length === 0) return;
     const product = await prisma.product.findFirstOrThrow({ where: { isActive: true } });
 
-    const quotation = await createQuotation(admin.id, customer.id, [{ productId: product.id, quantity: 1 }]);
+    const quotation = await createQuotation(customer.companyId, admin.id, customer.id, [{ productId: product.id, quantity: 1 }]);
     createdQuotationId = quotation.id;
     await updateQuotationStatus(quotation.id, QuotationStatus.ACCEPTED);
     const order = await convertQuotationToOrder(quotation.id);

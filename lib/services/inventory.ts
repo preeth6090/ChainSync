@@ -7,8 +7,11 @@ const RESERVATION_TTL_MINUTES = 15;
 export class MoqNotMetError extends Error {}
 export class InsufficientStockError extends Error {}
 
-export async function validateCustomerMoq(productId: string, quantity: number) {
+export async function validateCustomerMoq(companyId: string, productId: string, quantity: number) {
   const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
+  // A Product's id is globally unique, not scoped to a firm — without this check a customer
+  // could add another firm's product to their cart just by knowing its id.
+  if (product.companyId !== companyId) throw new MoqNotMetError('This product is not available.');
   if (quantity < product.minCustomerMoq) {
     throw new MoqNotMetError(
       `Minimum order quantity for ${product.sku} is ${product.minCustomerMoq}; requested ${quantity}.`
@@ -22,9 +25,10 @@ export async function validateCustomerMoq(productId: string, quantity: number) {
 // non-expired reservations — never by mutating Product.warehouseStock directly — so an
 // abandoned cart needs no compensating write to "give the stock back"; it simply stops
 // counting once expiresAt passes (see releaseExpiredReservations).
-export async function reserveStock(productId: string, customerId: string, quantity: number) {
+export async function reserveStock(companyId: string, productId: string, customerId: string, quantity: number) {
   return runSerializable(async (tx) => {
     const product = await tx.product.findUniqueOrThrow({ where: { id: productId } });
+    if (product.companyId !== companyId) throw new InsufficientStockError('This product is not available.');
 
     const activeReserved = await tx.stockReservation.aggregate({
       where: { productId, status: ReservationStatus.ACTIVE, expiresAt: { gt: new Date() } },

@@ -19,6 +19,7 @@ import {
 } from '@/components/procurement/action-buttons';
 import { GoodsReceiptForm } from '@/components/procurement/goods-receipt-form';
 import { VendorBillForm, type BillablePo } from '@/components/procurement/vendor-bill-form';
+import { getActiveCompanyId } from '@/lib/services/firm-context';
 import { AppShell } from '@/components/layout/app-shell';
 
 const DASHBOARD_ROLES: UserRole[] = [
@@ -34,6 +35,8 @@ export default async function ProcurementDashboardPage() {
   if (!session?.user) redirect('/login?callbackUrl=/procurement');
   if (!DASHBOARD_ROLES.includes(session.user.role)) redirect('/');
 
+  const companyId = await getActiveCompanyId(session.user.id);
+
   const [
     draftPOs,
     pendingApprovalPOs,
@@ -47,17 +50,17 @@ export default async function ProcurementDashboardPage() {
     pendingPayments,
   ] = await Promise.all([
     prisma.purchaseOrder.findMany({
-      where: { status: 'DRAFT' },
+      where: { companyId, status: 'DRAFT' },
       include: { vendor: true, items: true },
       orderBy: { createdAt: 'asc' },
     }),
     prisma.purchaseOrder.findMany({
-      where: { status: 'PENDING_APPROVAL' },
+      where: { companyId, status: 'PENDING_APPROVAL' },
       include: { vendor: true, items: true, maker: true },
       orderBy: { createdAt: 'asc' },
     }),
     prisma.moqConflictAlert.findMany({
-      where: { status: 'OPEN' },
+      where: { status: 'OPEN', orderItem: { order: { companyId } } },
       include: {
         orderItem: { include: { product: true, order: true } },
         vendorCatalog: { include: { vendor: true } },
@@ -65,37 +68,37 @@ export default async function ProcurementDashboardPage() {
       orderBy: { createdAt: 'asc' },
     }),
     prisma.shipment.findMany({
-      where: { status: 'DISPATCHED' },
+      where: { status: 'DISPATCHED', order: { companyId } },
       include: { order: true },
       orderBy: { dispatchedAt: 'asc' },
     }),
     prisma.dispute.findMany({
-      where: { status: { in: ['OPEN', 'INVESTIGATING'] } },
+      where: { status: { in: ['OPEN', 'INVESTIGATING'] }, order: { companyId } },
       include: { order: true, items: { include: { orderItem: { include: { product: true } } } } },
       orderBy: { createdAt: 'asc' },
     }),
     prisma.purchaseOrder.findMany({
-      where: { status: { in: ['DISPATCHED', 'PARTIALLY_RECEIVED'] } },
+      where: { companyId, status: { in: ['DISPATCHED', 'PARTIALLY_RECEIVED'] } },
       include: { vendor: true, items: { include: { product: true } } },
       orderBy: { createdAt: 'asc' },
     }),
     prisma.purchaseOrder.findMany({
-      where: { status: { in: ['DISPATCHED', 'PARTIALLY_RECEIVED', 'RECEIVED'] }, vendorBills: { none: {} } },
+      where: { companyId, status: { in: ['DISPATCHED', 'PARTIALLY_RECEIVED', 'RECEIVED'] }, vendorBills: { none: {} } },
       include: { items: { include: { product: true } } },
       orderBy: { createdAt: 'asc' },
     }),
     prisma.vendorBill.findMany({
-      where: { matchStatus: { in: ['PENDING', 'MISMATCHED'] } },
+      where: { matchStatus: { in: ['PENDING', 'MISMATCHED'] }, vendor: { companyId } },
       include: { vendor: true, purchaseOrder: true },
       orderBy: { createdAt: 'asc' },
     }),
     prisma.vendorPayable.findMany({
-      where: { status: 'PENDING' },
+      where: { status: 'PENDING', vendor: { companyId } },
       include: { vendor: true, vendorBill: true },
       orderBy: { createdAt: 'asc' },
     }),
     prisma.payment.findMany({
-      where: { status: 'PENDING_VERIFICATION' },
+      where: { status: 'PENDING_VERIFICATION', order: { companyId } },
       include: { order: true, customer: { include: { user: true } } },
       orderBy: { submittedAt: 'asc' },
     }),

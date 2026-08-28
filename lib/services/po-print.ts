@@ -4,16 +4,14 @@ import { prisma } from '@/lib/prisma';
 // values aren't serializable across the Server->Client boundary, so everything crossing into
 // the print component is a plain number/string.
 export async function getPurchaseOrderForPrint(purchaseOrderId: string) {
-  const [po, company] = await Promise.all([
-    prisma.purchaseOrder.findUniqueOrThrow({
-      where: { id: purchaseOrderId },
-      include: {
-        vendor: { include: { addresses: true } },
-        items: { include: { product: true } },
-      },
-    }),
-    prisma.companyProfile.findFirstOrThrow(),
-  ]);
+  const po = await prisma.purchaseOrder.findUniqueOrThrow({
+    where: { id: purchaseOrderId },
+    include: {
+      vendor: { include: { addresses: true } },
+      items: { include: { product: true } },
+    },
+  });
+  const company = await prisma.companyProfile.findUniqueOrThrow({ where: { id: po.companyId } });
 
   const vendorAddress = po.vendor.addresses[0];
 

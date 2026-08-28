@@ -5,6 +5,7 @@ import { Users, Phone, Mail, MapPin, FileText } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { listPartyBalances, getPartyDetail } from '@/lib/services/party-ledger';
 import { listInvoicesWithBillingStatus, type BillingStatus } from '@/lib/services/billing-status';
+import { getActiveCompanyId } from '@/lib/services/firm-context';
 import { AppShell } from '@/components/layout/app-shell';
 
 const STAFF_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.FINANCE];
@@ -23,12 +24,16 @@ export default async function PartiesPage({ searchParams }: { searchParams: Prom
   if (!session?.user) redirect('/login?callbackUrl=/finance/parties');
   if (!STAFF_ROLES.includes(session.user.role)) redirect('/');
 
+  const companyId = await getActiveCompanyId(session.user.id);
   const { party } = await searchParams;
-  const parties = await listPartyBalances();
+  const parties = await listPartyBalances(companyId);
   const selectedId = party ?? parties[0]?.customerId;
 
   const [detail, transactions] = selectedId
-    ? await Promise.all([getPartyDetail(selectedId), listInvoicesWithBillingStatus({ customerId: selectedId })])
+    ? await Promise.all([
+        getPartyDetail(companyId, selectedId),
+        listInvoicesWithBillingStatus(companyId, { customerId: selectedId }),
+      ])
     : [null, []];
 
   if (party && !detail) notFound();

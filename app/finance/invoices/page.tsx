@@ -4,6 +4,7 @@ import { UserRole } from '@prisma/client';
 import { Receipt, IndianRupee, Wallet, AlertCircle, Printer } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { listInvoicesWithBillingStatus, type BillingStatus } from '@/lib/services/billing-status';
+import { getActiveCompanyId } from '@/lib/services/firm-context';
 import { AppShell } from '@/components/layout/app-shell';
 import { RecordPaymentForm } from '@/components/finance/record-payment-form';
 
@@ -37,7 +38,8 @@ export default async function SaleInvoicesPage({
   const { status, from, to } = await searchParams;
   const statusFilter = status && status !== 'ALL' ? (status as BillingStatus) : undefined;
 
-  const rows = await listInvoicesWithBillingStatus({
+  const companyId = await getActiveCompanyId(session.user.id);
+  const rows = await listInvoicesWithBillingStatus(companyId, {
     from: from ? new Date(from) : undefined,
     to: to ? new Date(`${to}T23:59:59`) : undefined,
     status: statusFilter,

@@ -4,8 +4,11 @@ import { prisma } from '@/lib/prisma';
 export class SegregationOfDutiesError extends Error {}
 export class UnauthorizedApproverError extends Error {}
 
-export async function getApprovalThreshold(tx: Prisma.TransactionClient = prisma): Promise<Prisma.Decimal> {
-  const config = await tx.approvalConfig.findFirst({ where: { isActive: true }, orderBy: { updatedAt: 'desc' } });
+export async function getApprovalThreshold(
+  tx: Prisma.TransactionClient | typeof prisma,
+  companyId: string
+): Promise<Prisma.Decimal> {
+  const config = await tx.approvalConfig.findFirst({ where: { companyId, isActive: true }, orderBy: { updatedAt: 'desc' } });
   return config?.autoApproveBelow ?? new Prisma.Decimal(50000);
 }
 

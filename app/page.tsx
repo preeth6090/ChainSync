@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { getActiveCompanyId } from '@/lib/services/firm-context';
 import { AppShell } from '@/components/layout/app-shell';
 
 const MODULES = [
@@ -54,12 +55,15 @@ const HIGHLIGHTS = [
 
 export default async function HomePage() {
   const session = await auth();
+  const companyId = session?.user
+    ? await getActiveCompanyId(session.user.id)
+    : (await prisma.companyProfile.findFirstOrThrow({ orderBy: { createdAt: 'asc' } })).id;
 
   const [productCount, vendorCount, customerCount, orderCount] = await Promise.all([
-    prisma.product.count({ where: { isActive: true } }),
-    prisma.vendor.count({ where: { isActive: true } }),
-    prisma.customer.count(),
-    prisma.order.count(),
+    prisma.product.count({ where: { companyId, isActive: true } }),
+    prisma.vendor.count({ where: { companyId, isActive: true } }),
+    prisma.customer.count({ where: { companyId } }),
+    prisma.order.count({ where: { companyId } }),
   ]);
 
   const stats = [

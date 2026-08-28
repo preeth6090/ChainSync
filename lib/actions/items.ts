@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { UserRole, FulfillmentType } from '@prisma/client';
-import { requireRole } from '@/lib/auth-helpers';
+import { requireRoleWithCompany } from '@/lib/auth-helpers';
 import { createProduct, updateProduct, createCategory, type ProductInput } from '@/lib/services/items';
 import { importItemsFromWorkbook, type BulkImportResult } from '@/lib/services/bulk-import';
 import { writeAuditLog } from '@/lib/services/audit';
@@ -13,8 +13,8 @@ export type ItemActionResult<T> = { success: true; data: T } | { success: false;
 
 export async function createProductAction(input: ProductInput): Promise<ItemActionResult<{ id: string }>> {
   try {
-    const staff = await requireRole(...ITEM_MANAGER_ROLES);
-    const product = await createProduct(input);
+    const staff = await requireRoleWithCompany(...ITEM_MANAGER_ROLES);
+    const product = await createProduct(staff.companyId, input);
     revalidatePath('/items');
     revalidatePath('/catalog');
     await writeAuditLog(staff.id, 'PRODUCT_CREATED', 'Product', product.id, { sku: product.sku });
@@ -29,8 +29,8 @@ export async function updateProductAction(
   input: Partial<ProductInput> & { isActive?: boolean }
 ): Promise<ItemActionResult<{ id: string }>> {
   try {
-    const staff = await requireRole(...ITEM_MANAGER_ROLES);
-    const product = await updateProduct(id, input);
+    const staff = await requireRoleWithCompany(...ITEM_MANAGER_ROLES);
+    const product = await updateProduct(staff.companyId, id, input);
     revalidatePath('/items');
     revalidatePath('/catalog');
     await writeAuditLog(staff.id, 'PRODUCT_UPDATED', 'Product', product.id, { sku: product.sku, changes: input });
@@ -42,8 +42,8 @@ export async function updateProductAction(
 
 export async function createCategoryAction(name: string): Promise<ItemActionResult<{ id: string; name: string }>> {
   try {
-    await requireRole(...ITEM_MANAGER_ROLES);
-    const category = await createCategory(name);
+    const staff = await requireRoleWithCompany(...ITEM_MANAGER_ROLES);
+    const category = await createCategory(staff.companyId, name);
     revalidatePath('/items');
     return { success: true, data: { id: category.id, name: category.name } };
   } catch (e) {
@@ -57,12 +57,12 @@ const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 export async function bulkImportItemsAction(file: File): Promise<BulkImportActionResult> {
   try {
-    const staff = await requireRole(...ITEM_MANAGER_ROLES);
+    const staff = await requireRoleWithCompany(...ITEM_MANAGER_ROLES);
     if (!file || file.size === 0) return { success: false, error: 'No file uploaded.' };
     if (file.size > MAX_UPLOAD_BYTES) return { success: false, error: 'File is too large (max 5 MB).' };
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const result = await importItemsFromWorkbook(buffer);
+    const result = await importItemsFromWorkbook(staff.companyId, buffer);
     revalidatePath('/items');
     revalidatePath('/catalog');
     await writeAuditLog(staff.id, 'ITEMS_BULK_IMPORTED', 'Product', 'bulk', {

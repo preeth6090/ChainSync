@@ -5,21 +5,19 @@ import { prisma } from '@/lib/prisma';
 // way getInvoiceForPrint is: Prisma Decimal/Date values aren't serializable across the
 // Server->Client boundary, so this returns plain numbers/strings only.
 export async function getShipmentForPrint(shipmentId: string) {
-  const [shipment, company] = await Promise.all([
-    prisma.shipment.findUniqueOrThrow({
-      where: { id: shipmentId },
-      include: {
-        order: {
-          include: {
-            customer: { include: { user: true } },
-            shippingAddress: true,
-          },
+  const shipment = await prisma.shipment.findUniqueOrThrow({
+    where: { id: shipmentId },
+    include: {
+      order: {
+        include: {
+          customer: { include: { user: true } },
+          shippingAddress: true,
         },
-        items: { include: { orderItem: { include: { product: true } } } },
       },
-    }),
-    prisma.companyProfile.findFirstOrThrow(),
-  ]);
+      items: { include: { orderItem: { include: { product: true } } } },
+    },
+  });
+  const company = await prisma.companyProfile.findUniqueOrThrow({ where: { id: shipment.order.companyId } });
 
   return {
     company: {
@@ -64,8 +62,9 @@ export async function getShipmentForPrint(shipmentId: string) {
   };
 }
 
-export async function listShipments() {
+export async function listShipments(companyId: string) {
   return prisma.shipment.findMany({
+    where: { order: { companyId } },
     include: {
       order: { select: { orderNumber: true, customer: { include: { user: true } } } },
     },

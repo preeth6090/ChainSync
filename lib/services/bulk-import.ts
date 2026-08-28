@@ -48,7 +48,7 @@ function cell(row: unknown[], index: number): string | undefined {
 // Sheet parsing only — no formula evaluation, no external references. `sheet_to_json` with
 // header:1 returns raw rows without treating the first row as a schema, so header detection
 // and per-cell coercion are entirely explicit below rather than trusting column names.
-export async function importItemsFromWorkbook(buffer: Buffer): Promise<BulkImportResult> {
+export async function importItemsFromWorkbook(companyId: string, buffer: Buffer): Promise<BulkImportResult> {
   const workbook = XLSX.read(buffer, { type: 'buffer' });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   if (!sheet) throw new Error('The uploaded file has no sheets.');
@@ -88,13 +88,13 @@ export async function importItemsFromWorkbook(buffer: Buffer): Promise<BulkImpor
         const key = categoryName.toLowerCase();
         categoryId = categoryCache.get(key);
         if (!categoryId) {
-          const category = await createCategory(categoryName);
+          const category = await createCategory(companyId, categoryName);
           categoryId = category.id;
           categoryCache.set(key, categoryId);
         }
       }
 
-      const existing = await prisma.product.findUnique({ where: { sku } });
+      const existing = await prisma.product.findUnique({ where: { companyId_sku: { companyId, sku } } });
       const data = {
         name,
         description: description ?? null,
@@ -112,7 +112,7 @@ export async function importItemsFromWorkbook(buffer: Buffer): Promise<BulkImpor
         await prisma.product.update({ where: { id: existing.id }, data });
         result.updated++;
       } else {
-        await prisma.product.create({ data: { sku, ...data } });
+        await prisma.product.create({ data: { companyId, sku, ...data } });
         result.created++;
       }
     } catch (e) {

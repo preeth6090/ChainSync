@@ -21,15 +21,16 @@ export interface CashAndBankRow {
 // BankAccount model, and VendorPayable (what's paid out to vendors) isn't tagged with a mode,
 // so vendor payouts can't be attributed to CASH vs NEFT etc. here. Money out is expenses only;
 // vendor payables paid are surfaced separately in the business summary below.
-export async function getCashAndBankPosition(): Promise<CashAndBankRow[]> {
+export async function getCashAndBankPosition(companyId: string): Promise<CashAndBankRow[]> {
   const [payments, expenses] = await Promise.all([
     prisma.payment.groupBy({
       by: ['mode'],
-      where: { status: PaymentStatus.VERIFIED },
+      where: { status: PaymentStatus.VERIFIED, order: { companyId } },
       _sum: { amount: true },
     }),
     prisma.expense.groupBy({
       by: ['paidVia'],
+      where: { companyId },
       _sum: { amount: true },
     }),
   ]);
@@ -55,18 +56,18 @@ export interface BusinessSummary {
   netCashPosition: number;
 }
 
-export async function getBusinessSummary(): Promise<BusinessSummary> {
+export async function getBusinessSummary(companyId: string): Promise<BusinessSummary> {
   const [invoices, payables, expenseTotal] = await Promise.all([
     prisma.invoice.findMany({
-      where: { type: InvoiceType.TAX_INVOICE },
+      where: { companyId, type: InvoiceType.TAX_INVOICE },
       select: {
         grandTotal: true,
         creditNote: { select: { grandTotal: true } },
         order: { select: { payments: { where: { status: PaymentStatus.VERIFIED }, select: { amount: true } } } },
       },
     }),
-    prisma.vendorPayable.findMany({ select: { amount: true, status: true } }),
-    prisma.expense.aggregate({ _sum: { amount: true } }),
+    prisma.vendorPayable.findMany({ where: { vendor: { companyId } }, select: { amount: true, status: true } }),
+    prisma.expense.aggregate({ where: { companyId }, _sum: { amount: true } }),
   ]);
 
   let totalSales = 0;

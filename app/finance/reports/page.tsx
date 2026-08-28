@@ -3,6 +3,7 @@ import { UserRole } from '@prisma/client';
 import { BarChart3, Landmark, TrendingUp, TrendingDown, Scale } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { getCashAndBankPosition, getBusinessSummary } from '@/lib/services/reports';
+import { getActiveCompanyId } from '@/lib/services/firm-context';
 import { AppShell } from '@/components/layout/app-shell';
 
 const STAFF_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.FINANCE];
@@ -14,7 +15,8 @@ export default async function ReportsPage() {
   if (!session?.user) redirect('/login?callbackUrl=/finance/reports');
   if (!STAFF_ROLES.includes(session.user.role)) redirect('/');
 
-  const [cashAndBank, summary] = await Promise.all([getCashAndBankPosition(), getBusinessSummary()]);
+  const companyId = await getActiveCompanyId(session.user.id);
+  const [cashAndBank, summary] = await Promise.all([getCashAndBankPosition(companyId), getBusinessSummary(companyId)]);
   const totalCash = cashAndBank.reduce((sum, r) => sum + r.netPosition, 0);
 
   return (

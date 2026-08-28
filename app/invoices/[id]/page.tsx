@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getInvoiceForPrint } from '@/lib/services/invoicing';
 import { InvoiceDocument } from '@/components/invoice/invoice-document';
+import { getActiveCompanyId } from '@/lib/services/firm-context';
 
 const STAFF_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.FINANCE];
 
@@ -20,6 +21,10 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
       select: { id: true },
     });
     if (!owns) notFound();
+  } else {
+    const companyId = await getActiveCompanyId(session.user.id);
+    const invoice = await prisma.invoice.findUnique({ where: { id }, select: { companyId: true } });
+    if (!invoice || invoice.companyId !== companyId) notFound();
   }
 
   const { company, invoice } = await getInvoiceForPrint(id);

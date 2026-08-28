@@ -4,6 +4,7 @@ import { UserRole, ShipmentStatus } from '@prisma/client';
 import { Truck, Printer } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { listShipments } from '@/lib/services/delivery-challan';
+import { getActiveCompanyId } from '@/lib/services/firm-context';
 import { AppShell } from '@/components/layout/app-shell';
 
 const STAFF_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.FINANCE, UserRole.WAREHOUSE_STAFF];
@@ -25,7 +26,8 @@ export default async function DeliveryChallansListPage() {
   if (!session?.user) redirect('/login?callbackUrl=/logistics/challans');
   if (!STAFF_ROLES.includes(session.user.role)) redirect('/');
 
-  const shipments = await listShipments();
+  const companyId = await getActiveCompanyId(session.user.id);
+  const shipments = await listShipments(companyId);
 
   return (
     <AppShell>

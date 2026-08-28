@@ -1,10 +1,14 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import { AuthError } from 'next-auth';
 import { CustomerType } from '@prisma/client';
 import { signIn, signOut } from '@/lib/auth';
 import { registerCustomer } from '@/lib/services/signup';
+import { requireUser } from '@/lib/auth-helpers';
+import { prisma } from '@/lib/prisma';
+import { ACTIVE_FIRM_COOKIE } from '@/lib/services/firm-context';
 
 // Server-action sign-in rather than the client-side next-auth/react signIn() call: that
 // helper generally expects the app to be wrapped in a <SessionProvider>, which this app
@@ -29,6 +33,24 @@ export async function loginAction(formData: FormData) {
 
 export async function logoutAction() {
   await signOut({ redirectTo: '/' });
+}
+
+// Sets which firm subsequent requests operate on — see lib/services/firm-context.ts. Rejects
+// switching to a firm the user isn't a member of rather than trusting the client-supplied id.
+export async function switchFirmAction(companyId: string) {
+  const user = await requireUser();
+  const membership = await prisma.userFirm.findUnique({
+    where: { userId_companyId: { userId: user.id, companyId } },
+  });
+  if (!membership) throw new Error('You do not have access to this firm.');
+
+  const cookieStore = await cookies();
+  cookieStore.set(ACTIVE_FIRM_COOKIE, companyId, {
+    httpOnly: true,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 365,
+  });
 }
 
 export async function signupAction(formData: FormData) {

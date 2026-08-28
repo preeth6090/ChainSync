@@ -4,6 +4,7 @@ import { UserRole } from '@prisma/client';
 import { Undo2, Printer } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { listCreditNotes } from '@/lib/services/sale-returns';
+import { getActiveCompanyId } from '@/lib/services/firm-context';
 import { AppShell } from '@/components/layout/app-shell';
 import { SaleReturnForm } from '@/components/sales/sale-return-form';
 
@@ -17,7 +18,8 @@ export default async function SaleReturnsPage() {
   if (!session?.user) redirect('/login?callbackUrl=/sales/returns');
   if (!STAFF_ROLES.includes(session.user.role)) redirect('/');
 
-  const creditNotes = await listCreditNotes();
+  const companyId = await getActiveCompanyId(session.user.id);
+  const creditNotes = await listCreditNotes(companyId);
 
   return (
     <AppShell>

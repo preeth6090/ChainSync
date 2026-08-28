@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { UserRole, ExpenseCategory, PaymentMode } from '@prisma/client';
-import { requireRole } from '@/lib/auth-helpers';
+import { requireRoleWithCompany } from '@/lib/auth-helpers';
 import { createExpense } from '@/lib/services/expenses';
 import { writeAuditLog } from '@/lib/services/audit';
 
@@ -16,8 +16,8 @@ export async function recordExpenseAction(
   referenceNo?: string
 ): Promise<ExpenseActionResult> {
   try {
-    const finance = await requireRole(UserRole.ADMIN, UserRole.FINANCE);
-    const expense = await createExpense(finance.id, category, description, amount, paidVia, referenceNo);
+    const finance = await requireRoleWithCompany(UserRole.ADMIN, UserRole.FINANCE);
+    const expense = await createExpense(finance.companyId, finance.id, category, description, amount, paidVia, referenceNo);
     revalidatePath('/finance/purchases');
     await writeAuditLog(finance.id, 'EXPENSE_RECORDED', 'Expense', expense.id, { category, amount, paidVia });
     return { success: true, data: { id: expense.id } };

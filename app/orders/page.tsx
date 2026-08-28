@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { Printer } from 'lucide-react';
 import { formatInr, formatDate } from '@/lib/format';
+import { getActiveCompanyId } from '@/lib/services/firm-context';
 import { AppShell } from '@/components/layout/app-shell';
 
 const STAFF_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.PROCUREMENT_MAKER, UserRole.PROCUREMENT_CHECKER, UserRole.FINANCE];
@@ -22,8 +23,9 @@ export default async function OrdersListPage() {
     customerId = customer.id;
   }
 
+  const companyId = await getActiveCompanyId(session.user.id);
   const orders = await prisma.order.findMany({
-    where: customerId ? { customerId } : undefined,
+    where: customerId ? { customerId } : { companyId },
     include: { customer: { include: { user: true } } },
     orderBy: { createdAt: 'desc' },
   });

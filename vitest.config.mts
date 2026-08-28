@@ -16,6 +16,11 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/**/*.test.ts'],
     testTimeout: 30000,
+    // Integration tests hit one shared live database and several of them grab "any active
+    // product"/"the seeded customer" via findFirst rather than isolated fixtures — running
+    // test files in parallel (Vitest's default) lets one file's fixture get consumed by
+    // another file's concurrently-running test, causing real cross-test races.
+    fileParallelism: false,
   },
   resolve: {
     alias: {

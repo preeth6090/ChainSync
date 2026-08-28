@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { prisma } from '@/lib/prisma';
 import { createProduct, updateProduct, createCategory } from '@/lib/services/items';
 import { FulfillmentType } from '@prisma/client';
@@ -7,6 +7,11 @@ import { hasDatabase } from './helpers';
 describe.skipIf(!hasDatabase)('items service (live DB)', () => {
   const createdProductIds: string[] = [];
   const createdCategoryIds: string[] = [];
+  let companyId: string;
+
+  beforeAll(async () => {
+    companyId = (await prisma.companyProfile.findFirstOrThrow()).id;
+  });
 
   afterAll(async () => {
     if (createdProductIds.length) await prisma.product.deleteMany({ where: { id: { in: createdProductIds } } });
@@ -14,10 +19,10 @@ describe.skipIf(!hasDatabase)('items service (live DB)', () => {
   });
 
   it('creates a product, then updates it in place', async () => {
-    const category = await createCategory(`Test Category ${Date.now()}`);
+    const category = await createCategory(companyId, `Test Category ${Date.now()}`);
     createdCategoryIds.push(category.id);
 
-    const product = await createProduct({
+    const product = await createProduct(companyId, {
       sku: `TEST-ITEM-${Date.now()}`,
       name: 'Test Widget',
       hsnCode: '1234',
@@ -32,14 +37,14 @@ describe.skipIf(!hasDatabase)('items service (live DB)', () => {
     createdProductIds.push(product.id);
     expect(Number(product.sellingPrice)).toBe(100);
 
-    const updated = await updateProduct(product.id, { sellingPrice: 150, isActive: false });
+    const updated = await updateProduct(companyId, product.id, { sellingPrice: 150, isActive: false });
     expect(Number(updated.sellingPrice)).toBe(150);
     expect(updated.isActive).toBe(false);
   });
 
   it('rejects a duplicate SKU', async () => {
     const sku = `TEST-DUP-${Date.now()}`;
-    const first = await createProduct({
+    const first = await createProduct(companyId, {
       sku,
       name: 'First',
       hsnCode: '1234',
@@ -53,7 +58,7 @@ describe.skipIf(!hasDatabase)('items service (live DB)', () => {
     createdProductIds.push(first.id);
 
     await expect(
-      createProduct({
+      createProduct(companyId, {
         sku,
         name: 'Duplicate',
         hsnCode: '1234',
@@ -69,7 +74,7 @@ describe.skipIf(!hasDatabase)('items service (live DB)', () => {
 
   it('rejects a non-positive selling price', async () => {
     await expect(
-      createProduct({
+      createProduct(companyId, {
         sku: `TEST-BADPRICE-${Date.now()}`,
         name: 'Bad Price',
         hsnCode: '1234',

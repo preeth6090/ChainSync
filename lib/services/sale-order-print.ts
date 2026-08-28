@@ -5,17 +5,15 @@ import { prisma } from '@/lib/prisma';
 // print services: Prisma Decimal/Date values aren't serializable across the Server->Client
 // boundary.
 export async function getOrderForPrint(orderId: string) {
-  const [order, company] = await Promise.all([
-    prisma.order.findUniqueOrThrow({
-      where: { id: orderId },
-      include: {
-        customer: { include: { user: true } },
-        shippingAddress: true,
-        items: { include: { product: true } },
-      },
-    }),
-    prisma.companyProfile.findFirstOrThrow(),
-  ]);
+  const order = await prisma.order.findUniqueOrThrow({
+    where: { id: orderId },
+    include: {
+      customer: { include: { user: true } },
+      shippingAddress: true,
+      items: { include: { product: true } },
+    },
+  });
+  const company = await prisma.companyProfile.findUniqueOrThrow({ where: { id: order.companyId } });
 
   return {
     company: {

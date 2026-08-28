@@ -4,6 +4,7 @@ import { FileText } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { listQuotations } from '@/lib/services/quotations';
+import { getActiveCompanyId } from '@/lib/services/firm-context';
 import { AppShell } from '@/components/layout/app-shell';
 import { CreateQuotationForm } from '@/components/sales/create-quotation-form';
 import { QuotationActions } from '@/components/sales/quotation-actions';
@@ -27,10 +28,11 @@ export default async function QuotationsPage() {
   if (!session?.user) redirect('/login?callbackUrl=/sales/quotations');
   if (!STAFF_ROLES.includes(session.user.role)) redirect('/');
 
+  const companyId = await getActiveCompanyId(session.user.id);
   const [quotations, customers, products] = await Promise.all([
-    listQuotations(),
-    prisma.customer.findMany({ include: { user: true }, orderBy: { createdAt: 'desc' } }),
-    prisma.product.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
+    listQuotations(companyId),
+    prisma.customer.findMany({ where: { companyId }, include: { user: true }, orderBy: { createdAt: 'desc' } }),
+    prisma.product.findMany({ where: { companyId, isActive: true }, orderBy: { name: 'asc' } }),
   ]);
 
   const customerOptions = customers.map((c) => ({

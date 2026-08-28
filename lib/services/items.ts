@@ -1,8 +1,8 @@
 import { FulfillmentType } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 
-export async function listCategories() {
-  return prisma.category.findMany({ orderBy: { name: 'asc' } });
+export async function listCategories(companyId: string) {
+  return prisma.category.findMany({ where: { companyId }, orderBy: { name: 'asc' } });
 }
 
 function slugify(name: string): string {
@@ -13,12 +13,16 @@ function slugify(name: string): string {
     .replace(/(^-|-$)/g, '');
 }
 
-export async function createCategory(name: string) {
+export async function createCategory(companyId: string, name: string) {
   const trimmed = name.trim();
   if (!trimmed) throw new Error('Category name is required.');
   const slug = slugify(trimmed);
   if (!slug) throw new Error('Category name must contain at least one letter or number.');
-  return prisma.category.upsert({ where: { slug }, create: { name: trimmed, slug }, update: { name: trimmed } });
+  return prisma.category.upsert({
+    where: { companyId_slug: { companyId, slug } },
+    create: { companyId, name: trimmed, slug },
+    update: { name: trimmed },
+  });
 }
 
 export interface ProductInput {
@@ -35,7 +39,7 @@ export interface ProductInput {
   categoryId?: string | null;
 }
 
-export async function createProduct(input: ProductInput) {
+export async function createProduct(companyId: string, input: ProductInput) {
   const sku = input.sku.trim();
   const name = input.name.trim();
   if (!sku) throw new Error('SKU is required.');
@@ -45,11 +49,12 @@ export async function createProduct(input: ProductInput) {
   if (input.minCustomerMoq < 1) throw new Error('Minimum order quantity must be at least 1.');
   if (input.warehouseStock < 0) throw new Error('Warehouse stock cannot be negative.');
 
-  const existing = await prisma.product.findUnique({ where: { sku } });
+  const existing = await prisma.product.findUnique({ where: { companyId_sku: { companyId, sku } } });
   if (existing) throw new Error(`SKU "${sku}" is already in use.`);
 
   return prisma.product.create({
     data: {
+      companyId,
       sku,
       name,
       description: input.description?.trim() || undefined,
@@ -65,12 +70,21 @@ export async function createProduct(input: ProductInput) {
   });
 }
 
-export async function updateProduct(id: string, input: Partial<ProductInput> & { isActive?: boolean }) {
+export async function updateProduct(
+  companyId: string,
+  id: string,
+  input: Partial<ProductInput> & { isActive?: boolean }
+) {
   if (input.sellingPrice !== undefined && input.sellingPrice <= 0) {
     throw new Error('Selling price must be positive.');
   }
   if (input.warehouseStock !== undefined && input.warehouseStock < 0) {
     throw new Error('Warehouse stock cannot be negative.');
+  }
+
+  const existing = await prisma.product.findUnique({ where: { id }, select: { companyId: true } });
+  if (!existing || existing.companyId !== companyId) {
+    throw new Error('Product not found in this firm.');
   }
 
   return prisma.product.update({
@@ -91,6 +105,6 @@ export async function updateProduct(id: string, input: Partial<ProductInput> & {
   });
 }
 
-export async function listProductsForAdmin() {
-  return prisma.product.findMany({ include: { category: true }, orderBy: { createdAt: 'desc' } });
+export async function listProductsForAdmin(companyId: string) {
+  return prisma.product.findMany({ where: { companyId }, include: { category: true }, orderBy: { createdAt: 'desc' } });
 }

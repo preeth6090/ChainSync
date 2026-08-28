@@ -6,16 +6,17 @@ const prisma = new PrismaClient();
 // Shared demo password for every seeded account, differentiated by email/role rather than
 // password. Fine for a seed script; a real signup flow would never do this.
 const DEFAULT_PASSWORD = 'ChainSync@123';
+const COMPANY_ID = 'default-company';
 
 async function main() {
   console.log('Seeding...');
   const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
 
   await prisma.companyProfile.upsert({
-    where: { id: 'default-company' },
+    where: { id: COMPANY_ID },
     update: {},
     create: {
-      id: 'default-company',
+      id: COMPANY_ID,
       legalName: 'ChainSync Trading Pvt Ltd',
       gstin: '27AAAPL1234C1ZV',
       pan: 'AAAPL1234C',
@@ -35,13 +36,13 @@ async function main() {
   await prisma.approvalConfig.upsert({
     where: { id: 'default-approval-config' },
     update: {},
-    create: { id: 'default-approval-config', autoApproveBelow: 50000, isActive: true },
+    create: { id: 'default-approval-config', companyId: COMPANY_ID, autoApproveBelow: 50000, isActive: true },
   });
 
   const warehouse = await prisma.warehouse.upsert({
-    where: { code: 'WH-MUM-01' },
+    where: { companyId_code: { companyId: COMPANY_ID, code: 'WH-MUM-01' } },
     update: {},
-    create: { name: 'Mumbai Central Warehouse', code: 'WH-MUM-01' },
+    create: { companyId: COMPANY_ID, name: 'Mumbai Central Warehouse', code: 'WH-MUM-01' },
   });
   const existingWarehouseAddress = await prisma.address.findFirst({ where: { warehouseId: warehouse.id } });
   if (!existingWarehouseAddress) {
@@ -108,10 +109,23 @@ async function main() {
     }),
   ]);
 
+  // Every seeded account gets membership in the one seeded firm, so signing in as any of them
+  // immediately resolves an active company — see lib/services/firm-context.ts.
+  await Promise.all(
+    [admin, maker, checker, finance, warehouseStaff, vendorUserAccount, customerUserAccount].map((u) =>
+      prisma.userFirm.upsert({
+        where: { userId_companyId: { userId: u.id, companyId: COMPANY_ID } },
+        update: {},
+        create: { userId: u.id, companyId: COMPANY_ID, isDefault: true },
+      })
+    )
+  );
+
   const vendor = await prisma.vendor.upsert({
-    where: { phone: '+919800000001' },
+    where: { companyId_phone: { companyId: COMPANY_ID, phone: '+919800000001' } },
     update: {},
     create: {
+      companyId: COMPANY_ID,
       legalName: 'Genuine Suppliers Pvt Ltd',
       displayName: 'Genuine Suppliers',
       gstin: '29AAAPL5678C1ZQ',
@@ -137,6 +151,7 @@ async function main() {
     where: { userId: customerUserAccount.id },
     update: {},
     create: {
+      companyId: COMPANY_ID,
       userId: customerUserAccount.id,
       customerType: CustomerType.B2B,
       gstin: '07AAAPL9012C1ZR',
@@ -163,17 +178,18 @@ async function main() {
   }
 
   const category = await prisma.category.upsert({
-    where: { slug: 'industrial-supplies' },
+    where: { companyId_slug: { companyId: COMPANY_ID, slug: 'industrial-supplies' } },
     update: {},
-    create: { name: 'Industrial Supplies', slug: 'industrial-supplies' },
+    create: { companyId: COMPANY_ID, name: 'Industrial Supplies', slug: 'industrial-supplies' },
   });
 
   // One product per fulfillment type, so routeOrderFulfillment's three branches are all
   // reachable from a single seeded catalog.
   const warehouseOnlyProduct = await prisma.product.upsert({
-    where: { sku: 'WH-BOLT-M8' },
+    where: { companyId_sku: { companyId: COMPANY_ID, sku: 'WH-BOLT-M8' } },
     update: {},
     create: {
+      companyId: COMPANY_ID,
       sku: 'WH-BOLT-M8',
       name: 'M8 Hex Bolt (Box of 100)',
       hsnCode: '7318',
@@ -187,9 +203,10 @@ async function main() {
   });
 
   const dropShipProduct = await prisma.product.upsert({
-    where: { sku: 'DS-MOTOR-1HP' },
+    where: { companyId_sku: { companyId: COMPANY_ID, sku: 'DS-MOTOR-1HP' } },
     update: {},
     create: {
+      companyId: COMPANY_ID,
       sku: 'DS-MOTOR-1HP',
       name: '1HP Induction Motor',
       hsnCode: '8501',
@@ -205,9 +222,10 @@ async function main() {
   // warehouseStock (10) < vendorMoq (5) means ordering ~11-14 units deliberately triggers a
   // MOQ conflict on the vendor-routed remainder — useful for exercising that guardrail.
   const hybridProduct = await prisma.product.upsert({
-    where: { sku: 'HY-VALVE-2IN' },
+    where: { companyId_sku: { companyId: COMPANY_ID, sku: 'HY-VALVE-2IN' } },
     update: {},
     create: {
+      companyId: COMPANY_ID,
       sku: 'HY-VALVE-2IN',
       name: '2-inch Ball Valve',
       hsnCode: '8481',

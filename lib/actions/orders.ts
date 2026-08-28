@@ -45,11 +45,11 @@ export async function addToCartAction(
 ): Promise<ActionResult<{ reserved: boolean }>> {
   try {
     const customer = await requireCustomer();
-    const product = await validateCustomerMoq(productId, quantity);
+    const product = await validateCustomerMoq(customer.companyId, productId, quantity);
     if (product.fulfillmentType !== FulfillmentType.WAREHOUSE_ONLY) {
       return { success: true, data: { reserved: false } };
     }
-    await reserveStock(productId, customer.id, quantity);
+    await reserveStock(customer.companyId, productId, customer.id, quantity);
     return { success: true, data: { reserved: true } };
   } catch (e) {
     if (isExpectedError(e)) return { success: false, error: e.message };
@@ -70,8 +70,8 @@ export async function checkoutOrderAction(
 
     const [address, company, products] = await Promise.all([
       prisma.address.findUniqueOrThrow({ where: { id: shippingAddressId } }),
-      prisma.companyProfile.findFirstOrThrow(),
-      prisma.product.findMany({ where: { id: { in: lines.map((l) => l.productId) } } }),
+      prisma.companyProfile.findUniqueOrThrow({ where: { id: customer.companyId } }),
+      prisma.product.findMany({ where: { id: { in: lines.map((l) => l.productId) }, companyId: customer.companyId } }),
     ]);
     if (address.customerId !== customer.id) {
       return { success: false, error: 'This shipping address does not belong to your account.' };
@@ -79,7 +79,7 @@ export async function checkoutOrderAction(
     const productMap = new Map(products.map((p) => [p.id, p]));
 
     for (const line of lines) {
-      await validateCustomerMoq(line.productId, line.quantity);
+      await validateCustomerMoq(customer.companyId, line.productId, line.quantity);
     }
 
     const priced = lines.map((line) => {
@@ -98,9 +98,10 @@ export async function checkoutOrderAction(
     const totals = summarizeInvoiceTotals(priced.map((p) => p.gst));
 
     const createdOrder = await runSerializable(async (tx) => {
-      const orderNumber = await generateOrderNumber(tx);
+      const orderNumber = await generateOrderNumber(tx, customer.companyId);
       const order = await tx.order.create({
         data: {
+          companyId: customer.companyId,
           orderNumber,
           customerId: customer.id,
           status: OrderStatus.CONFIRMED,

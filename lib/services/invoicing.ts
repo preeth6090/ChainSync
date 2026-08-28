@@ -20,13 +20,11 @@ interface BillingAddressSnapshot {
 // component boundary, so this flattens an Invoice into plain numbers/strings the print
 // components can render.
 export async function getInvoiceForPrint(invoiceId: string) {
-  const [invoice, company] = await Promise.all([
-    prisma.invoice.findUniqueOrThrow({
-      where: { id: invoiceId },
-      include: { items: true, order: { select: { orderNumber: true } } },
-    }),
-    prisma.companyProfile.findFirstOrThrow(),
-  ]);
+  const invoice = await prisma.invoice.findUniqueOrThrow({
+    where: { id: invoiceId },
+    include: { items: true, order: { select: { orderNumber: true } } },
+  });
+  const company = await prisma.companyProfile.findUniqueOrThrow({ where: { id: invoice.companyId } });
 
   return {
     company: {

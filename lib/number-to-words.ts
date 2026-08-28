@@ -21,8 +21,15 @@ function threeDigits(n: number): string {
 // Indian numbering system (crore / lakh / thousand), as used on GST tax invoices' legally
 // required "Amount in words" line.
 export function amountInWords(value: number): string {
-  const rupees = Math.floor(value);
-  const paise = Math.round((value - rupees) * 100);
+  let rupees = Math.floor(value);
+  let paise = Math.round((value - rupees) * 100);
+  // Rounding the fractional part can itself round up to 100 (e.g. 10.999 -> floor 10, paise
+  // round(99.9) = 100) — without this carry, twoDigits(100) would index past TENS[9] and
+  // print "undefined" in the output instead of correctly becoming the next whole rupee.
+  if (paise === 100) {
+    rupees += 1;
+    paise = 0;
+  }
 
   if (rupees === 0 && paise === 0) return 'Rupees Zero Only';
 

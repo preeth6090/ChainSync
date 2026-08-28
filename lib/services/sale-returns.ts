@@ -42,7 +42,7 @@ export async function createSaleReturn(
     },
   });
 
-  return generateCreditNote(dispute.id);
+  return generateCreditNote(dispute.id, raisedByUserId);
 }
 
 export async function listReturnableOrderItems(orderId: string) {

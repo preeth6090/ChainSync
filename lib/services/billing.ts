@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { runSerializable } from '@/lib/services/tx-utils';
 import { calculateLineGst, summarizeInvoiceTotals, determineSupplyType } from '@/lib/services/gst';
 import { nextInvoiceNumber } from '@/lib/services/numbering';
+import { writeAuditLog } from '@/lib/services/audit';
 
 // Generates the order's tax invoice — the "moves to final billing" step once every
 // shipment's 24-hour dispute window has closed undisputed. Idempotent per order (refuses to
@@ -12,8 +13,8 @@ import { nextInvoiceNumber } from '@/lib/services/numbering';
 // Items whose dispute already resolved as a refund are simply left off the invoice rather
 // than invoiced-then-credited — see generateCreditNote for the case where the invoice
 // already existed by the time a dispute resolved.
-export async function generateInvoiceForOrder(orderId: string) {
-  return runSerializable(async (tx) => {
+export async function generateInvoiceForOrder(orderId: string, actorUserId: string | null = null) {
+  const invoice = await runSerializable(async (tx) => {
     const existing = await tx.invoice.findFirst({ where: { orderId, type: InvoiceType.TAX_INVOICE } });
     if (existing) throw new Error(`Order already has tax invoice ${existing.invoiceNumber}.`);
 
@@ -107,13 +108,20 @@ export async function generateInvoiceForOrder(orderId: string) {
 
     return invoice;
   });
+
+  await writeAuditLog(actorUserId, 'INVOICE_GENERATED', 'Invoice', invoice.id, {
+    invoiceNumber: invoice.invoiceNumber,
+    orderId,
+    trigger: actorUserId ? 'manual' : 'automatic',
+  });
+  return invoice;
 }
 
 // Issues a credit note against an already-issued tax invoice for specific disputed items —
 // the path used when a dispute resolves as a refund *after* generateInvoiceForOrder already
 // ran (e.g. a later shipment's dispute surfaces after the main invoice was issued).
-export async function generateCreditNote(disputeId: string) {
-  return prisma.$transaction(async (tx) => {
+export async function generateCreditNote(disputeId: string, actorUserId: string | null = null) {
+  const creditNote = await prisma.$transaction(async (tx) => {
     const dispute = await tx.dispute.findUniqueOrThrow({ where: { id: disputeId }, include: { items: true } });
     if (dispute.status !== DisputeStatus.RESOLVED_REFUND) {
       throw new Error(`Dispute ${disputeId} is not resolved as a refund.`);
@@ -185,4 +193,12 @@ export async function generateCreditNote(disputeId: string) {
       },
     });
   });
+
+  await writeAuditLog(actorUserId, 'CREDIT_NOTE_ISSUED', 'Invoice', creditNote.id, {
+    invoiceNumber: creditNote.invoiceNumber,
+    disputeId,
+    originalInvoiceId: creditNote.originalInvoiceId,
+    trigger: actorUserId ? 'manual' : 'automatic',
+  });
+  return creditNote;
 }

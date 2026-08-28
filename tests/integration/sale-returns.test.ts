@@ -113,6 +113,13 @@ describe.skipIf(!hasDatabase)('sale returns service (live DB)', () => {
 
     const dispute = await prisma.dispute.findFirstOrThrow({ where: { orderId: order.id } });
     expect(dispute.status).toBe(DisputeStatus.RESOLVED_REFUND);
+
+    const auditRow = await prisma.auditLog.findFirst({
+      where: { entityType: 'Invoice', entityId: creditNote.id, action: 'CREDIT_NOTE_ISSUED' },
+    });
+    expect(auditRow).toBeTruthy();
+    expect(auditRow?.actorUserId).toBe(admin.id);
+    await prisma.auditLog.deleteMany({ where: { entityId: creditNote.id } });
   });
 
   it('refuses a return against an order with no tax invoice', async () => {

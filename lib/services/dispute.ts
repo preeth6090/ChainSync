@@ -2,6 +2,7 @@ import { ShipmentStatus, DisputeStatus, OrderStatus, DisputeReason } from '@pris
 import { prisma } from '@/lib/prisma';
 import { generateInvoiceForOrder, generateCreditNote } from '@/lib/services/billing';
 import { notifyInternalTeam } from '@/lib/services/notifications';
+import { writeAuditLog } from '@/lib/services/audit';
 
 const DISPUTE_WINDOW_HOURS = 24;
 
@@ -38,7 +39,7 @@ export async function raiseDispute(
 ) {
   if (items.length === 0) throw new Error('A dispute needs at least one affected item.');
 
-  return prisma.$transaction(async (tx) => {
+  const dispute = await prisma.$transaction(async (tx) => {
     const shipment = await tx.shipment.findUniqueOrThrow({ where: { id: shipmentId } });
     if (shipment.orderId !== orderId) throw new Error('That shipment does not belong to this order.');
     if (shipment.status !== ShipmentStatus.DISPUTE_WINDOW_OPEN) {
@@ -69,6 +70,9 @@ export async function raiseDispute(
 
     return dispute;
   });
+
+  await writeAuditLog(raisedByUserId, 'DISPUTE_RAISED', 'Dispute', dispute.id, { orderId, shipmentId });
+  return dispute;
 }
 
 export type DisputeResolution = 'REFUND' | 'REPLACEMENT' | 'REJECTED';
@@ -82,7 +86,12 @@ const RESOLUTION_STATUS: Record<DisputeResolution, DisputeStatus> = {
 // Support/admin resolves the dispute. A refund either keeps the disputed lines off the
 // invoice (generateInvoiceForOrder hasn't run for this order yet) or issues a credit note
 // against the invoice that already exists.
-export async function resolveDispute(disputeId: string, resolution: DisputeResolution, resolutionNote?: string) {
+export async function resolveDispute(
+  disputeId: string,
+  resolution: DisputeResolution,
+  resolvedByUserId: string,
+  resolutionNote?: string
+) {
   const dispute = await prisma.$transaction(async (tx) => {
     const existing = await tx.dispute.findUniqueOrThrow({ where: { id: disputeId } });
     if (existing.status !== DisputeStatus.OPEN && existing.status !== DisputeStatus.INVESTIGATING) {
@@ -114,12 +123,13 @@ export async function resolveDispute(disputeId: string, resolution: DisputeResol
       where: { orderId: dispute.orderId, type: 'TAX_INVOICE' },
     });
     if (existingInvoice) {
-      await generateCreditNote(dispute.id);
+      await generateCreditNote(dispute.id, resolvedByUserId);
     }
     // If no invoice exists yet, the next closeDisputeWindows/generateInvoiceForOrder run
     // will naturally exclude this dispute's items — no credit note needed for that case.
   }
 
+  await writeAuditLog(resolvedByUserId, 'DISPUTE_RESOLVED', 'Dispute', dispute.id, { resolution, resolutionNote });
   return dispute;
 }
 

@@ -47,8 +47,8 @@ export async function raiseDisputeAction(
 }
 
 export async function resolveDisputeAction(disputeId: string, resolution: DisputeResolution, resolutionNote?: string) {
-  await requireRole(UserRole.ADMIN, UserRole.FINANCE);
-  const dispute = await resolveDispute(disputeId, resolution, resolutionNote);
+  const staff = await requireRole(UserRole.ADMIN, UserRole.FINANCE);
+  const dispute = await resolveDispute(disputeId, resolution, staff.id, resolutionNote);
   revalidatePath('/procurement/disputes');
   return { id: dispute.id, status: dispute.status };
 }

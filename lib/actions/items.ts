@@ -5,6 +5,7 @@ import { UserRole, FulfillmentType } from '@prisma/client';
 import { requireRole } from '@/lib/auth-helpers';
 import { createProduct, updateProduct, createCategory, type ProductInput } from '@/lib/services/items';
 import { importItemsFromWorkbook, type BulkImportResult } from '@/lib/services/bulk-import';
+import { writeAuditLog } from '@/lib/services/audit';
 
 const ITEM_MANAGER_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.PROCUREMENT_MAKER];
 
@@ -12,10 +13,11 @@ export type ItemActionResult<T> = { success: true; data: T } | { success: false;
 
 export async function createProductAction(input: ProductInput): Promise<ItemActionResult<{ id: string }>> {
   try {
-    await requireRole(...ITEM_MANAGER_ROLES);
+    const staff = await requireRole(...ITEM_MANAGER_ROLES);
     const product = await createProduct(input);
     revalidatePath('/items');
     revalidatePath('/catalog');
+    await writeAuditLog(staff.id, 'PRODUCT_CREATED', 'Product', product.id, { sku: product.sku });
     return { success: true, data: { id: product.id } };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : 'Could not create item.' };
@@ -27,10 +29,11 @@ export async function updateProductAction(
   input: Partial<ProductInput> & { isActive?: boolean }
 ): Promise<ItemActionResult<{ id: string }>> {
   try {
-    await requireRole(...ITEM_MANAGER_ROLES);
+    const staff = await requireRole(...ITEM_MANAGER_ROLES);
     const product = await updateProduct(id, input);
     revalidatePath('/items');
     revalidatePath('/catalog');
+    await writeAuditLog(staff.id, 'PRODUCT_UPDATED', 'Product', product.id, { sku: product.sku, changes: input });
     return { success: true, data: { id: product.id } };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : 'Could not update item.' };
@@ -54,7 +57,7 @@ const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 export async function bulkImportItemsAction(file: File): Promise<BulkImportActionResult> {
   try {
-    await requireRole(...ITEM_MANAGER_ROLES);
+    const staff = await requireRole(...ITEM_MANAGER_ROLES);
     if (!file || file.size === 0) return { success: false, error: 'No file uploaded.' };
     if (file.size > MAX_UPLOAD_BYTES) return { success: false, error: 'File is too large (max 5 MB).' };
 
@@ -62,6 +65,12 @@ export async function bulkImportItemsAction(file: File): Promise<BulkImportActio
     const result = await importItemsFromWorkbook(buffer);
     revalidatePath('/items');
     revalidatePath('/catalog');
+    await writeAuditLog(staff.id, 'ITEMS_BULK_IMPORTED', 'Product', 'bulk', {
+      fileName: file.name,
+      created: result.created,
+      updated: result.updated,
+      errorCount: result.errors.length,
+    });
     return { success: true, data: result };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : 'Could not import items.' };

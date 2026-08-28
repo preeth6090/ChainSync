@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { UserRole, QuotationStatus } from '@prisma/client';
 import { requireRole } from '@/lib/auth-helpers';
 import { createQuotation, updateQuotationStatus, convertQuotationToOrder, type QuotationLineInput } from '@/lib/services/quotations';
+import { writeAuditLog } from '@/lib/services/audit';
 
 const SALES_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.FINANCE];
 
@@ -25,6 +26,10 @@ export async function createQuotationAction(
       notes
     );
     revalidatePath('/sales/quotations');
+    await writeAuditLog(staff.id, 'QUOTATION_CREATED', 'Quotation', quotation.id, {
+      quotationNumber: quotation.quotationNumber,
+      customerId,
+    });
     return { success: true, data: { id: quotation.id, quotationNumber: quotation.quotationNumber } };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : 'Could not create quotation.' };
@@ -36,9 +41,10 @@ export async function setQuotationStatusAction(
   status: QuotationStatus
 ): Promise<QuotationActionResult<{ status: QuotationStatus }>> {
   try {
-    await requireRole(...SALES_ROLES);
+    const staff = await requireRole(...SALES_ROLES);
     const quotation = await updateQuotationStatus(quotationId, status);
     revalidatePath('/sales/quotations');
+    await writeAuditLog(staff.id, 'QUOTATION_STATUS_CHANGED', 'Quotation', quotation.id, { status: quotation.status });
     return { success: true, data: { status: quotation.status } };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : 'Could not update quotation.' };
@@ -49,10 +55,11 @@ export async function convertQuotationAction(
   quotationId: string
 ): Promise<QuotationActionResult<{ orderId: string }>> {
   try {
-    await requireRole(...SALES_ROLES);
+    const staff = await requireRole(...SALES_ROLES);
     const order = await convertQuotationToOrder(quotationId);
     revalidatePath('/sales/quotations');
     revalidatePath('/orders');
+    await writeAuditLog(staff.id, 'QUOTATION_CONVERTED', 'Quotation', quotationId, { orderId: order.id });
     return { success: true, data: { orderId: order.id } };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : 'Could not convert quotation.' };

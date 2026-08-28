@@ -9,6 +9,7 @@ import { calculateLineGst, summarizeInvoiceTotals } from '@/lib/services/gst';
 import { routeOrderFulfillment } from '@/lib/services/order-routing';
 import { generateOrderNumber } from '@/lib/services/numbering';
 import { runSerializable } from '@/lib/services/tx-utils';
+import { writeAuditLog } from '@/lib/services/audit';
 
 export interface CheckoutLine {
   productId: string;
@@ -151,6 +152,10 @@ export async function checkoutOrderAction(
 
     await routeOrderFulfillment(createdOrder.id);
     revalidatePath('/orders');
+    await writeAuditLog(customer.userId, 'ORDER_CREATED', 'Order', createdOrder.id, {
+      orderNumber: createdOrder.orderNumber,
+      grandTotal: totals.grandTotal.toString(),
+    });
 
     // Return only plain scalar fields, not the raw Order row — it carries Decimal fields
     // (subtotal/taxTotal/grandTotal), and a Server Action's return value crosses the same

@@ -5,6 +5,7 @@ import { UserRole, DisputeReason } from '@prisma/client';
 import { requireRole } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 import { createSaleReturn, listReturnableOrderItems } from '@/lib/services/sale-returns';
+import { writeAuditLog } from '@/lib/services/audit';
 
 export type OrderLookupResult =
   | {
@@ -61,6 +62,11 @@ export async function createSaleReturnAction(
     const creditNote = await createSaleReturn(staff.id, orderId, orderItemIds, reason, notes);
     revalidatePath('/sales/returns');
     revalidatePath('/finance/invoices');
+    await writeAuditLog(staff.id, 'SALE_RETURN_ISSUED', 'Invoice', creditNote.id, {
+      invoiceNumber: creditNote.invoiceNumber,
+      orderId,
+      reason,
+    });
     return { success: true, data: { creditNoteId: creditNote.id, invoiceNumber: creditNote.invoiceNumber } };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : 'Could not process sale return.' };

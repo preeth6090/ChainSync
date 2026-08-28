@@ -3,13 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
-import {
-  submitPoForApprovalAction,
-  approvePoAction,
-  rejectPoAction,
-  runThreeWayMatchAction,
-  releaseVendorPayableAction,
-} from '@/lib/actions/procurement';
+import { submitPoForApprovalAction, approvePoAction, rejectPoAction, runThreeWayMatchAction } from '@/lib/actions/procurement';
 import { resolveMoqConflictAction } from '@/lib/actions/moq-conflict';
 import { markShipmentDeliveredAction, resolveDisputeAction } from '@/lib/actions/dispute';
 import { verifyPaymentAction, rejectPaymentAction } from '@/lib/actions/payments';
@@ -168,34 +162,7 @@ export function RunThreeWayMatchButton({ vendorBillId }: { vendorBillId: string 
   );
 }
 
-export function ReleasePayableButton({ payableId }: { payableId: string }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-
-  return (
-    <div>
-      <button
-        onClick={() =>
-          startTransition(async () => {
-            setError(null);
-            try {
-              await releaseVendorPayableAction(payableId);
-              router.refresh();
-            } catch (e) {
-              setError(e instanceof Error ? e.message : 'Could not release.');
-            }
-          })
-        }
-        disabled={pending}
-        className="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-40"
-      >
-        {pending ? <Loader2 size={14} className="animate-spin" /> : 'Release payment'}
-      </button>
-      {error && <p className="mt-1 text-xs font-semibold text-rose-600">{error}</p>}
-    </div>
-  );
-}
+export { ReleasePayableButton } from '@/components/finance/release-payable-button';
 
 export function SubmitPoButton({ poId }: { poId: string }) {
   const router = useRouter();

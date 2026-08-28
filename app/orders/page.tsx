@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { UserRole } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { Printer } from 'lucide-react';
 import { formatInr, formatDate } from '@/lib/format';
 import { AppShell } from '@/components/layout/app-shell';
 
@@ -38,10 +39,10 @@ export default async function OrdersListPage() {
         ) : (
           <ul className="mt-6 space-y-3">
             {orders.map((order) => (
-              <li key={order.id}>
+              <li className="flex items-center gap-2" key={order.id}>
                 <Link
                   href={`/orders/${order.id}`}
-                  className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 hover:border-indigo-300"
+                  className="flex flex-1 items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 hover:border-indigo-300"
                 >
                   <div>
                     <p className="font-bold text-slate-900">{order.orderNumber}</p>
@@ -54,6 +55,14 @@ export default async function OrdersListPage() {
                     <p className="font-semibold text-slate-700">{formatInr(order.grandTotal)}</p>
                     <p className="text-xs font-semibold text-slate-400">{order.status.replaceAll('_', ' ')}</p>
                   </div>
+                </Link>
+                <Link
+                  href={`/sale-order/${order.id}`}
+                  target="_blank"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                  title="Print Sale Order"
+                >
+                  <Printer size={16} />
                 </Link>
               </li>
             ))}

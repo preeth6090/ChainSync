@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+import Link from 'next/link';
 import { UserRole } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
@@ -53,6 +54,9 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           {order.status.replaceAll('_', ' ')}
         </span>
       </div>
+      <Link href={`/sale-order/${order.id}`} target="_blank" className="mt-2 inline-block text-sm font-bold text-indigo-600">
+        Print Sale Order
+      </Link>
 
       <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5">
         <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Items</p>
